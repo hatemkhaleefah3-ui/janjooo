@@ -1,0 +1,637 @@
+Build a production-ready TypeScript project named:
+
+Jang PPTX Template Engine
+
+PURPOSE
+
+Create a reusable PowerPoint template and rendering engine for my existing Jang lecture builder.
+
+This project must NOT convert ordinary HTML into PowerPoint.
+
+It must generate a native editable .pptx file directly from a strict structured lecture JSON object and a collection of user-imported images.
+
+The same lecture JSON schema will be used by:
+
+1. Gemini structured extraction
+2. The website’s intermediate image-import interface
+3. The PowerPoint rendering engine
+
+The connection must be:
+
+Gemini output schema
+=
+website lecture data schema
+=
+PPTX renderer input schema
+
+The renderer must not reinterpret loose text. It must receive validated structured data and place it into predefined PowerPoint layouts.
+
+TECHNOLOGY
+
+Use:
+
+- TypeScript
+- PptxGenJS
+- Vite
+- Ajv for JSON Schema validation
+- A small React interface only for demonstrating and testing the template
+- Vitest for automated tests
+
+Keep the core PPTX engine independent from React and browser DOM code.
+
+Do not use:
+
+- HTML-to-PPTX conversion
+- screenshots of HTML slides
+- browser print-to-PDF
+- images of text
+- Canva or Google Slides APIs
+- a paid external conversion service
+- AI calls inside the PPTX renderer
+
+All text, tables, diagrams, shapes, and images must be native editable PowerPoint objects whenever possible.
+
+CORE API
+
+Create this reusable function:
+
+async function generateLecturePptx(
+  lecture: LectureDocument,
+  importedImages: Record<string, ImportedImage>
+): Promise<Blob>
+
+Use these interfaces:
+
+interface ImportedImage {
+  dataUrl: string;
+  fileName?: string;
+  mimeType?: string;
+}
+
+interface LectureDocument {
+  schemaVersion: "1.0";
+  documentTitle: string;
+  direction: "ltr" | "rtl";
+  overview: LectureOverview;
+  sections: LectureSection[];
+  endNote: string;
+  extractionAudit?: ExtractionAudit;
+}
+
+interface LectureOverview {
+  title: string;
+  introduction: string;
+  keyPoints: string[];
+}
+
+interface LectureSection {
+  sectionId: string;
+  sectionTitle: string;
+  slides: LectureSlide[];
+}
+
+interface LectureSlide {
+  slideId: string;
+  slideTitle: string;
+  slideSubtitle: string;
+  sourceReferences: string[];
+  blocks: LectureBlock[];
+}
+
+type LectureBlock =
+  | SubtitleBlock
+  | ParagraphBlock
+  | BulletsBlock
+  | NumberedBlock
+  | CalloutBlock
+  | TableBlock
+  | DiagramBlock
+  | ImageBlock;
+
+interface BaseBlock {
+  blockId: string;
+  sourceReferences: string[];
+}
+
+interface SubtitleBlock extends BaseBlock {
+  type: "subtitle";
+  text: string;
+}
+
+interface ParagraphBlock extends BaseBlock {
+  type: "paragraph";
+  text: string;
+}
+
+interface BulletsBlock extends BaseBlock {
+  type: "bullets";
+  items: string[];
+}
+
+interface NumberedBlock extends BaseBlock {
+  type: "numbered";
+  items: string[];
+}
+
+interface CalloutBlock extends BaseBlock {
+  type: "callout";
+  label: string;
+  text: string;
+  tone: "note" | "warning" | "info";
+}
+
+interface TableBlock extends BaseBlock {
+  type: "table";
+  label: string;
+  headers: string[];
+  rows: string[][];
+}
+
+interface DiagramBlock extends BaseBlock {
+  type: "diagram";
+  label: string;
+  diagramRows: string[][];
+}
+
+interface ImageBlock extends BaseBlock {
+  type: "image";
+  slotId: string;
+  label: string;
+  description: string;
+  important: boolean;
+  sourceReference: string;
+  fit: "contain" | "cover";
+  preferredAspect:
+    | "wide"
+    | "portrait"
+    | "square"
+    | "full"
+    | "automatic";
+}
+
+interface ExtractionAudit {
+  sourceType: "pdf" | "pptx";
+  sourcePageOrSlideCount: number;
+  coveredSourceReferences: string[];
+  unmappedSourceReferences: string[];
+  warnings: string[];
+}
+
+SCHEMA FILES
+
+Create these files:
+
+- src/schema/lecture-types.ts
+- src/schema/lecture-schema.json
+- src/schema/validate-lecture.ts
+
+The JSON Schema must match the TypeScript interfaces exactly.
+
+Gemini must be able to use lecture-schema.json as its structured-output response schema.
+
+Validation must reject:
+
+- missing document titles
+- sections without titles
+- sections without slides
+- slides without blocks
+- duplicate section IDs
+- duplicate slide IDs
+- duplicate block IDs
+- duplicate image slot IDs
+- repeated non-empty slide titles
+- image blocks without a specific label
+- table or diagram blocks without labels
+- malformed table rows
+- empty diagram nodes
+
+IMAGE LABEL VALIDATION
+
+Image labels must identify the actual visual in simple terms.
+
+Good labels:
+
+- Glycolysis biochemical pathway
+- Nephron cross-section
+- Insulin receptor signaling cascade
+- Cardiac cycle pressure graph
+- Stages of mitosis illustration
+
+Bad labels:
+
+- Image
+- Figure
+- Picture
+- Lecture image
+- Important image
+- Diagram
+- Page image
+- Image 1
+
+Add validation that warns about generic labels and duplicate labels.
+
+An image block represents an important source visual, but does not contain the original image.
+
+The website will display:
+
+- image label
+- image description
+- source page or slide
+- Import image button
+
+The imported image will be provided to the renderer using its slotId.
+
+LECTURE FLOW
+
+The generated PowerPoint must always follow this order:
+
+1. Cover slide
+2. Overview slide
+3. First section-title slide
+4. First section’s content slides
+5. Second section-title slide
+6. Second section’s content slides
+7. Continue for all sections
+8. Ending slide
+
+Do not place content before the overview.
+
+Do not create an extra section-title slide for the overview.
+
+COVER SLIDE
+
+Include:
+
+- lecture name
+- a small “Lecture” label
+- optional visual design elements
+- no invented subtitle
+- no source content omitted from later slides
+
+Use a clean professional academic design.
+
+OVERVIEW SLIDE
+
+Include:
+
+- overview title
+- brief introduction
+- key points
+- automatically generated table of contents using section titles
+
+The table of contents must be generated by the renderer, not supplied as duplicated Gemini text.
+
+SECTION SLIDES
+
+Every section title must receive its own standalone slide.
+
+The same section title must appear as a small header on all content slides belonging to that section.
+
+SLIDE TITLE RULES
+
+A slide title is optional.
+
+When present:
+
+- place it at the upper-left
+- use a larger bold font
+- place a divider line directly below it
+- do not repeat it on continuation slides
+- do not use the section title as the slide title
+- do not convert every subtitle into a slide title
+
+A continuation slide may have an empty slideTitle.
+
+SLIDE SUBTITLE RULES
+
+A slide subtitle is optional.
+
+When present:
+
+- place it under the slide title
+- align it to the upper-left
+- make it bold
+- make it larger than paragraph text
+- do not add a divider line
+- do not promote it automatically to a slide title
+
+Additional subtitles inside content use subtitle blocks.
+
+TEXT ALIGNMENT
+
+All content text must begin from the physical upper-left of the content area:
+
+- slide titles
+- slide subtitles
+- subtitle blocks
+- paragraphs
+- bullet lists
+- numbered lists
+- callouts
+
+Do this even when the lecture language is RTL.
+
+The text direction may still be RTL for Arabic text, but the content container must remain positioned at the upper-left.
+
+Do not vertically center text slides.
+
+VISUAL SLIDES
+
+Images, large tables, and large diagrams must be centered horizontally and vertically.
+
+IMAGE RULES
+
+Each important image gets a dedicated slide.
+
+Use the image block’s:
+
+- label
+- description
+- slotId
+- source reference
+- fit preference
+
+Place the label as a native text caption.
+
+When an imported image exists:
+
+- add it as a native PowerPoint image
+- preserve its aspect ratio
+- maximize it inside the safe slide area
+- never stretch it
+- use contain by default
+- use cover only when explicitly requested
+- avoid cropping labels, charts, anatomy annotations, or pathway nodes
+
+When no image was imported:
+
+- show a labeled native PowerPoint placeholder
+- include the image label
+- include its simple description
+- include the source reference
+- do not crash generation
+
+TABLE RULES
+
+Every table must have a specific label.
+
+For tables with 3 or fewer columns:
+
+- they may share a slide with nearby text
+- keep all rows on the slide only when readable
+- place text and table in a two-column layout
+- use automatic font reduction within a safe minimum
+- never clip table cells
+
+For tables with more than 3 columns:
+
+- create a dedicated table slide
+- center the table
+- use the full safe width
+- shrink fonts carefully
+- split across continuation slides when necessary
+- repeat table headers on continuation slides
+- add “continued” only when required
+
+Never turn a table into a screenshot.
+
+DIAGRAM RULES
+
+Every diagram must have a specific label.
+
+Diagram rows contain ordered node labels.
+
+Render diagrams using native PowerPoint shapes and connectors.
+
+For diagrams with 4 or fewer total nodes:
+
+- they may share a slide with nearby text
+- when the diagram comes before new text, place it in the upper-middle
+- when it follows previous text, place it in the middle-bottom
+
+For diagrams with more than 4 nodes:
+
+- create a dedicated centered diagram slide
+- split very large pathways into logical continuation slides
+- preserve node order
+- show arrows or connectors clearly
+- never remove nodes to make the diagram fit
+
+CONTENT PAGINATION
+
+Create a deterministic pagination engine.
+
+Never allow:
+
+- clipped text
+- text outside the slide
+- overlapping objects
+- cropped table rows
+- diagram nodes outside the slide
+- captions outside the safe area
+
+Split content intelligently:
+
+- long paragraphs by sentence boundaries
+- bullet and numbered lists between items
+- tables between rows
+- diagrams between logical groups
+- never split an image
+
+Continuation slides:
+
+- retain the section header
+- normally have an empty slide title
+- may retain the relevant subtitle when necessary
+- must preserve source order
+
+Do not summarize content merely to make it fit.
+
+POWERPOINT SETTINGS
+
+Use:
+
+- 16:9 widescreen layout
+- editable PowerPoint text
+- editable tables
+- editable diagram shapes
+- theme-based typography
+- slide numbers
+- consistent margins
+- consistent section headers
+- safe-area calculations in inches
+- no object outside slide boundaries
+
+Create theme constants for:
+
+- slide dimensions
+- margins
+- font family
+- title sizes
+- subtitle sizes
+- paragraph sizes
+- minimum readable font sizes
+- line spacing
+- colors
+- table styling
+- diagram node styling
+- caption styling
+
+Do not scatter design numbers throughout the code.
+
+Store them in:
+
+- src/template/theme.ts
+- src/template/geometry.ts
+
+PROJECT STRUCTURE
+
+Create:
+
+src/
+  schema/
+    lecture-types.ts
+    lecture-schema.json
+    validate-lecture.ts
+
+  template/
+    theme.ts
+    geometry.ts
+    slide-layouts.ts
+
+  renderer/
+    generate-lecture-pptx.ts
+    compose-slides.ts
+    paginate-content.ts
+    render-cover.ts
+    render-overview.ts
+    render-section.ts
+    render-content-slide.ts
+    render-image.ts
+    render-table.ts
+    render-diagram.ts
+    render-text.ts
+    image-sizing.ts
+    geometry-validation.ts
+
+  demo/
+    App.tsx
+    sample-lecture.ts
+    sample-images.ts
+
+  tests/
+    schema.test.ts
+    pagination.test.ts
+    image-layout.test.ts
+    table-layout.test.ts
+    diagram-layout.test.ts
+    pptx-generation.test.ts
+
+DEMO INTERFACE
+
+Create a simple test page containing:
+
+- JSON editor or file input for lecture JSON
+- validation results
+- list of image slots
+- image import button for every slot
+- imported-image preview
+- Generate PPTX button
+- Download PPTX button
+- generation warnings panel
+
+The demo is only for testing the engine.
+
+Do not implement Gemini extraction in this Replit project.
+
+JANG INTEGRATION CONTRACT
+
+The existing Jang workflow is:
+
+1. Import PDF or PPTX
+2. Click Build
+3. Button becomes Loading while Gemini extracts
+4. Website displays important image positions
+5. User imports images
+6. User clicks Continue
+7. Website calls generateLecturePptx()
+8. Button becomes Download PPTX
+9. User downloads the generated PowerPoint
+
+The same button changes through:
+
+Build
+→ Loading…
+→ Continue
+→ Download PPTX
+
+Expose a clean integration module:
+
+export {
+  generateLecturePptx,
+  validateLecture,
+  lectureSchema
+};
+
+The generator must work from browser code using data URLs and return a downloadable Blob.
+
+QUALITY ASSURANCE
+
+Add tests that prove:
+
+- the PowerPoint file is generated successfully
+- lecture order is cover → overview → sections → ending
+- section slides are inserted correctly
+- repeated slide titles are rejected or removed
+- continuation slides do not repeat the slide title
+- image slot IDs connect to imported images
+- missing images create labeled placeholders
+- generic image labels create warnings
+- small tables can share slides with text
+- large tables receive dedicated slides
+- small diagrams can share slides with text
+- large diagrams receive dedicated slides
+- no generated object exceeds slide boundaries
+- text begins at the upper-left
+- visual-only slides remain centered
+- source order is preserved
+- source-reference coverage warnings are surfaced
+
+Include a realistic sample lecture containing:
+
+- cover
+- overview
+- two sections
+- paragraphs
+- bullet lists
+- subtitles
+- one callout
+- one small table
+- one large table
+- one small diagram
+- one large biochemical pathway
+- two image slots
+- one imported image
+- one missing image placeholder
+
+DELIVERABLES
+
+The completed project must include:
+
+1. Working Replit application
+2. Reusable native PPTX generator
+3. TypeScript lecture interfaces
+4. Gemini-compatible JSON Schema
+5. Runtime validation
+6. PPTX design template
+7. Demo interface
+8. Automated tests
+9. Integration documentation
+10. Example code showing how Jang calls the generator
+11. README explaining how to export the generator for use in another project
+
+Do not stop after creating mock screens.
+
+Run the application and tests, fix all errors, and confirm that clicking Download PPTX produces a valid editable .pptx file.
+
+Make sensible implementation decisions without asking follow-up questions.

@@ -1,0 +1,276 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LectureDocument",
+  "type": "object",
+  "description": "A fully structured lecture document for PPTX rendering and Gemini structured extraction.",
+  "required": ["schemaVersion", "documentTitle", "direction", "overview", "sections", "endNote"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0",
+      "description": "Must be exactly \"1.0\"."
+    },
+    "documentTitle": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Title of the entire lecture document."
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["ltr", "rtl"],
+      "description": "Reading direction of the lecture language."
+    },
+    "overview": { "$ref": "#/definitions/LectureOverview" },
+    "sections": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/definitions/LectureSection" },
+      "description": "Ordered list of lecture sections."
+    },
+    "endNote": {
+      "type": "string",
+      "description": "Closing statement shown on the ending slide."
+    },
+    "extractionAudit": { "$ref": "#/definitions/ExtractionAudit" }
+  },
+  "definitions": {
+    "LectureOverview": {
+      "type": "object",
+      "required": ["title", "introduction", "keyPoints"],
+      "additionalProperties": false,
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "introduction": { "type": "string" },
+        "keyPoints": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "LectureSection": {
+      "type": "object",
+      "required": ["sectionId", "sectionTitle", "slides"],
+      "additionalProperties": false,
+      "properties": {
+        "sectionId": { "type": "string", "minLength": 1 },
+        "sectionTitle": { "type": "string", "minLength": 1 },
+        "slides": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/LectureSlide" }
+        }
+      }
+    },
+    "LectureSlide": {
+      "type": "object",
+      "required": ["slideId", "slideTitle", "slideSubtitle", "sourceReferences", "blocks"],
+      "additionalProperties": false,
+      "properties": {
+        "slideId": { "type": "string", "minLength": 1 },
+        "slideTitle": { "type": "string" },
+        "slideSubtitle": { "type": "string" },
+        "sourceReferences": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "blocks": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/definitions/LectureBlock" }
+        }
+      }
+    },
+    "LectureBlock": {
+      "oneOf": [
+        { "$ref": "#/definitions/SubtitleBlock" },
+        { "$ref": "#/definitions/ParagraphBlock" },
+        { "$ref": "#/definitions/BulletsBlock" },
+        { "$ref": "#/definitions/NumberedBlock" },
+        { "$ref": "#/definitions/CalloutBlock" },
+        { "$ref": "#/definitions/TableBlock" },
+        { "$ref": "#/definitions/DiagramBlock" },
+        { "$ref": "#/definitions/ImageBlock" }
+      ]
+    },
+    "BaseBlock": {
+      "type": "object",
+      "required": ["blockId", "sourceReferences"],
+      "properties": {
+        "blockId": { "type": "string", "minLength": 1 },
+        "sourceReferences": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "SubtitleBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "text"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "subtitle" },
+            "text": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "ParagraphBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "text"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "paragraph" },
+            "text": { "type": "string" }
+          }
+        }
+      ]
+    },
+    "BulletsBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "bullets" },
+            "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "NumberedBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "items"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "numbered" },
+            "items": { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          }
+        }
+      ]
+    },
+    "CalloutBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "label", "text", "tone"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "callout" },
+            "label": { "type": "string" },
+            "text": { "type": "string" },
+            "tone": { "type": "string", "enum": ["note", "warning", "info"] }
+          }
+        }
+      ]
+    },
+    "TableBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "label", "headers", "rows"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "table" },
+            "label": { "type": "string", "minLength": 1 },
+            "headers": { "type": "array", "minItems": 1, "items": { "type": "string" } },
+            "rows": {
+              "type": "array",
+              "items": {
+                "type": "array",
+                "items": { "type": "string" }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "DiagramBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "label", "diagramRows"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "diagram" },
+            "label": { "type": "string", "minLength": 1 },
+            "diagramRows": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": { "type": "string", "minLength": 1 }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "ImageBlock": {
+      "allOf": [
+        { "$ref": "#/definitions/BaseBlock" },
+        {
+          "type": "object",
+          "required": ["type", "slotId", "label", "description", "important", "sourceReference", "fit", "preferredAspect"],
+          "additionalProperties": false,
+          "properties": {
+            "blockId": { "type": "string" },
+            "sourceReferences": { "type": "array", "items": { "type": "string" } },
+            "type": { "type": "string", "const": "image" },
+            "slotId": { "type": "string", "minLength": 1 },
+            "label": { "type": "string", "minLength": 1 },
+            "description": { "type": "string" },
+            "important": { "type": "boolean" },
+            "sourceReference": { "type": "string" },
+            "fit": { "type": "string", "enum": ["contain", "cover"] },
+            "preferredAspect": {
+              "type": "string",
+              "enum": ["wide", "portrait", "square", "full", "automatic"]
+            }
+          }
+        }
+      ]
+    },
+    "ExtractionAudit": {
+      "type": "object",
+      "required": ["sourceType", "sourcePageOrSlideCount", "coveredSourceReferences", "unmappedSourceReferences", "warnings"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceType": { "type": "string", "enum": ["pdf", "pptx"] },
+        "sourcePageOrSlideCount": { "type": "integer", "minimum": 0 },
+        "coveredSourceReferences": { "type": "array", "items": { "type": "string" } },
+        "unmappedSourceReferences": { "type": "array", "items": { "type": "string" } },
+        "warnings": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  }
+}

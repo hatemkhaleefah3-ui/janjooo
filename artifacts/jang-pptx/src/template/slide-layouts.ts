@@ -1,0 +1,76 @@
+import { THEME } from './theme';
+import { CONTENT_X, CONTENT_WIDTH, CONTENT_Y_AFTER_HEADER } from './geometry';
+
+/** Zone constants for the cover slide. */
+export const COVER_LAYOUT = {
+  LABEL_X: CONTENT_X + 0.15,
+  LABEL_Y: THEME.MARGIN * 2.5,
+  LABEL_W: CONTENT_WIDTH,
+  LABEL_H: 0.3,
+
+  TITLE_X: CONTENT_X + 0.15,
+  TITLE_Y: THEME.SLIDE_HEIGHT * 0.37,
+  TITLE_W: CONTENT_WIDTH - 0.15,
+  TITLE_H: 2.0,
+
+  STRIP_X: 0,
+  STRIP_Y: 0,
+  STRIP_W: 0.25,
+  STRIP_H: THEME.SLIDE_HEIGHT,
+
+  ACCENT_X: 0.35,
+  ACCENT_W: 0.06,
+} as const;
+
+/** Zone constants for the overview slide. */
+export const OVERVIEW_LAYOUT = {
+  TITLE_X: CONTENT_X,
+  TITLE_Y: CONTENT_Y_AFTER_HEADER,
+  TITLE_W: CONTENT_WIDTH,
+  TITLE_H: 0.5,
+
+  DIVIDER_Y: CONTENT_Y_AFTER_HEADER + 0.52,
+
+  LEFT_COL_X: CONTENT_X,
+  LEFT_COL_W: CONTENT_WIDTH * 0.55,
+
+  RIGHT_COL_X: CONTENT_X + CONTENT_WIDTH * 0.58,
+  RIGHT_COL_W: CONTENT_WIDTH * 0.42,
+
+  INTRO_Y: CONTENT_Y_AFTER_HEADER + 0.65,
+  INTRO_H: 1.1,
+
+  KEYPOINTS_LABEL_Y: CONTENT_Y_AFTER_HEADER + 1.85,
+  KEYPOINTS_Y: CONTENT_Y_AFTER_HEADER + 2.2,
+  KEYPOINTS_H: 3.2,
+
+  TOC_LABEL_Y: CONTENT_Y_AFTER_HEADER + 0.65,
+  TOC_CARD_Y: CONTENT_Y_AFTER_HEADER + 0.6,
+  TOC_Y: CONTENT_Y_AFTER_HEADER + 1.0,
+  TOC_H: 4.5,
+  TOC_CARD_H: 5.0,
+} as const;
+
+/** Zone constants for section title slides. */
+export const SECTION_LAYOUT = {
+  BAND_X: 0,
+  BAND_Y: 0,
+  BAND_W: THEME.SLIDE_WIDTH,
+  BAND_H: THEME.SLIDE_HEIGHT * 0.65,
+
+  GOLD_STRIPE_Y: THEME.SLIDE_HEIGHT * 0.65 - 0.06,
+  GOLD_STRIPE_H: 0.06,
+
+  NUMBER_Y: THEME.SLIDE_HEIGHT * 0.2,
+  NUMBER_H: 0.5,
+
+  TITLE_Y: THEME.SLIDE_HEIGHT * 0.32,
+  TITLE_H: 1.7,
+} as const;
+
+/** Zone constants for the ending slide. */
+export const ENDING_LAYOUT = {
+  TEXT_Y: THEME.SLIDE_HEIGHT * 0.33,
+  TEXT_H: 1.0,
+  UNDERLINE_Y: THEME.SLIDE_HEIGHT * 0.33 + 1.1,
+} as const;

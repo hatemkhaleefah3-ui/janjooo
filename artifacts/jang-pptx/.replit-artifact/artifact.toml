@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "Jang PPTX Template Engine"
+version = "1.0.0"
+id = "artifacts/jang-pptx"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 20283
+
+[services.development]
+run = "pnpm --filter @workspace/jang-pptx run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/jang-pptx", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/jang-pptx/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "20283"
+BASE_PATH = "/"
