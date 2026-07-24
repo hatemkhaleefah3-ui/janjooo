@@ -1,0 +1,32 @@
+name: Bootstrap dependencies
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Archive installed workspace dependencies
+        run: tar -czf workspace-dependencies.tgz node_modules artifacts/jang-pptx/node_modules
+      - uses: actions/upload-artifact@v4
+        with:
+          name: workspace-dependencies
+          path: workspace-dependencies.tgz
+          if-no-files-found: error
+          retention-days: 1
