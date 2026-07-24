@@ -42,7 +42,7 @@ export async function generateLecturePptx(
     blob = await pptx.write({ outputType: 'blob' }) as Blob;
   } else {
     const buffer = await pptx.write({ outputType: 'nodebuffer' });
-    blob = new Blob([buffer as Buffer], {
+    blob = new Blob([new Uint8Array(buffer as Buffer)], {
       type: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     });
   }

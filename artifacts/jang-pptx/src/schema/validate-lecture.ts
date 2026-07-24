@@ -1,7 +1,8 @@
 import Ajv from 'ajv';
 import addFormats from 'ajv-formats';
 import lectureSchemaJson from './lecture-schema.json';
-import type { LectureDocument, ImageBlock, TableBlock, DiagramBlock } from './lecture-types';
+import type { LectureDocument, ImageBlock, TableBlock, DiagramBlock, RichText, ListItem } from './lecture-types';
+import { listItemLevel, normalizeRichText, richTextToPlain } from '../renderer/rich-text';
 
 export const lectureSchema: object = lectureSchemaJson;
 
@@ -86,7 +87,7 @@ export function validateLecture(data: unknown): ValidationResult {
       }
       slideIds.add(slide.slideId);
 
-      const titleTrimmed = slide.slideTitle.trim();
+    const titleTrimmed = slide.slideTitle.trim();
       if (titleTrimmed) {
         if (nonEmptySlideTitles.has(titleTrimmed)) {
           errors.push(`Repeated non-empty slide title: "${titleTrimmed}"`);
@@ -112,17 +113,17 @@ export function validateLecture(data: unknown): ValidationResult {
           }
           imageSlotIds.add(img.slotId);
 
-          if (!img.label || !img.label.trim()) {
+          if (!richTextToPlain(img.label).trim()) {
             errors.push(`Image block "${img.blockId}" has no label`);
           } else {
-            if (isGenericLabel(img.label)) {
+            if (isGenericLabel(richTextToPlain(img.label))) {
               warnings.push(
-                `Image block "${img.blockId}" has a generic label: "${img.label}". Use a specific descriptive label (e.g. "Mitochondria electron micrograph").`,
+              `Image block "${img.blockId}" has a generic label: "${richTextToPlain(img.label)}". Use a specific descriptive label (e.g. "Mitochondria electron micrograph").`,
               );
             }
-            const labelLower = img.label.toLowerCase().trim();
+            const labelLower = richTextToPlain(img.label).toLowerCase().trim();
             if (imageLabels.has(labelLower)) {
-              warnings.push(`Duplicate image label: "${img.label}"`);
+              warnings.push(`Duplicate image label: "${richTextToPlain(img.label)}"`);
             }
             imageLabels.add(labelLower);
           }
@@ -130,7 +131,7 @@ export function validateLecture(data: unknown): ValidationResult {
 
         if (block.type === 'table') {
           const tbl = block as TableBlock;
-          if (!tbl.label || !tbl.label.trim()) {
+          if (!richTextToPlain(tbl.label).trim()) {
             errors.push(`Table block "${tbl.blockId}" has no label`);
           }
           for (let ri = 0; ri < tbl.rows.length; ri++) {
@@ -144,12 +145,12 @@ export function validateLecture(data: unknown): ValidationResult {
 
         if (block.type === 'diagram') {
           const dia = block as DiagramBlock;
-          if (!dia.label || !dia.label.trim()) {
+          if (!richTextToPlain(dia.label).trim()) {
             errors.push(`Diagram block "${dia.blockId}" has no label`);
           }
           for (let ri = 0; ri < dia.diagramRows.length; ri++) {
             for (let ni = 0; ni < dia.diagramRows[ri].length; ni++) {
-              if (!dia.diagramRows[ri][ni].trim()) {
+              if (!richTextToPlain(dia.diagramRows[ri][ni]).trim()) {
                 errors.push(
                   `Diagram block "${dia.blockId}" has an empty node at row ${ri}, position ${ni}`,
                 );
@@ -159,6 +160,51 @@ export function validateLecture(data: unknown): ValidationResult {
         }
       }
     }
+  }
+
+  // Rich text and list semantics are validated separately so errors point to
+  // the exact lecture location instead of AJV's nested oneOf branches.
+  for (const section of doc.sections) {
+    for (const slide of section.slides) {
+      for (const block of slide.blocks) {
+        const richValues: Array<[string, RichText]> = [];
+        if (block.type === 'paragraph' || block.type === 'subtitle') richValues.push(['text', block.text]);
+        if (block.type === 'callout') richValues.push(['label', block.label], ['text', block.text]);
+        if (block.type === 'image') richValues.push(['label', block.label], ['description', block.description]);
+        if (block.type === 'table') richValues.push(['label', block.label], ...block.headers.map((v, i) => [`headers[${i}]`, v] as [string, RichText]), ...block.rows.flatMap((r, ri) => r.map((v, ci) => [`rows[${ri}][${ci}]`, v] as [string, RichText])));
+        if (block.type === 'diagram') richValues.push(['label', block.label], ...block.diagramRows.flatMap((r, ri) => r.map((v, ni) => [`diagramRows[${ri}][${ni}]`, v] as [string, RichText])));
+        for (const [path, value] of richValues) {
+          for (const [index, run] of normalizeRichText(value).entries()) {
+            if (!run.text) errors.push(`${block.blockId}.${path}[${index}].text must not be empty`);
+          }
+        }
+        if (block.type === 'bullets' || block.type === 'numbered') {
+          let previousLevel = 0;
+          block.items.forEach((item: string | ListItem, index) => {
+            const level = listItemLevel(item);
+            if (!Number.isInteger(level) || level < 0) errors.push(`${block.blockId}.items[${index}].level must be a non-negative integer`);
+            if (level - previousLevel > 1) warnings.push(`${block.blockId}.items[${index}] jumps more than one nesting level`);
+            previousLevel = level;
+          });
+        }
+        if (block.type === 'table' && block.tableType === 'heatmap' && block.heatmap) {
+          if (block.heatmap.max <= block.heatmap.min) errors.push(`${block.blockId}.heatmap.max must be greater than min`);
+          if (block.heatmap.values.length !== block.rows.length) errors.push(`${block.blockId}.heatmap.values must match row count`);
+        }
+      }
+    }
+  }
+
+  if (doc.extractionAudit) {
+    const covered = new Set(doc.extractionAudit.coveredSourceReferences);
+    const unmapped = new Set(doc.extractionAudit.unmappedSourceReferences);
+    for (const ref of unmapped) if (covered.has(ref)) errors.push(`Source reference "${ref}" cannot be both covered and unmapped`);
+    const allRefs = new Set<string>();
+    for (const section of doc.sections) for (const slide of section.slides) {
+      slide.sourceReferences.forEach((ref) => allRefs.add(ref));
+      section.slides.forEach((s) => s.blocks.forEach((b) => b.sourceReferences.forEach((ref) => allRefs.add(ref))));
+    }
+    for (const ref of allRefs) if (!covered.has(ref) && !unmapped.has(ref)) warnings.push(`Extraction audit: source reference "${ref}" is not covered or unmapped`);
   }
 
   // ─── Extraction audit warnings ────────────────────────────────────────────

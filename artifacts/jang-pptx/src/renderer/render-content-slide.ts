@@ -11,6 +11,7 @@ import {
   calloutBgColor, calloutBorderColor, calloutLabelColor, calloutLabelText,
 } from './render-text';
 import type { LectureBlock, TableBlock, DiagramBlock } from '../schema/lecture-types';
+import { listTextRuns, richTextRuns, richTextToPlain } from './rich-text';
 
 function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
@@ -32,7 +33,7 @@ function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
 
 export interface ContentSlideInfo {
   slideTitle: string;
-  slideSubtitle: string;
+  slideSubtitle: import('../schema/lecture-types').RichText;
   isFirstPage: boolean;
   sectionTitle: string;
 }
@@ -47,7 +48,7 @@ export function renderContentSlide(
   addSectionHeader(slide, info.sectionTitle);
 
   const hasTitle = info.isFirstPage && !!info.slideTitle.trim();
-  const hasSubtitle = info.isFirstPage && !!info.slideSubtitle.trim();
+  const hasSubtitle = info.isFirstPage && !!richTextToPlain(info.slideSubtitle).trim();
 
   // ─── Slide title ──────────────────────────────────────────────────────────
   if (hasTitle) {
@@ -70,7 +71,7 @@ export function renderContentSlide(
   // ─── Slide subtitle ───────────────────────────────────────────────────────
   if (hasSubtitle) {
     const subY = getContentYStart(hasTitle, false);
-    slide.addText(info.slideSubtitle, {
+    slide.addText(richTextRuns(info.slideSubtitle), {
       x: CONTENT_X, y: subY, w: CONTENT_WIDTH, h: THEME.SUBTITLE_HEIGHT,
       fontFace: THEME.FONT, fontSize: THEME.FONT_SLIDE_SUBTITLE,
       bold: true, color: THEME.BODY_TEXT, align: 'left', valign: 'top',
@@ -87,7 +88,7 @@ export function renderContentSlide(
 
     switch (block.type) {
       case 'subtitle': {
-        slide.addText(block.text, {
+        slide.addText(richTextRuns(block.text), {
           x: CONTENT_X, y: currentY, w: CONTENT_WIDTH, h: THEME.H_SUBTITLE_BLOCK,
           fontFace: THEME.FONT, fontSize: THEME.FONT_SUBTITLE_BLOCK,
           bold: true, color: THEME.NAVY, align: 'left', valign: 'top', wrap: true,
@@ -97,9 +98,9 @@ export function renderContentSlide(
       }
 
       case 'paragraph': {
-        const estimatedLines = Math.max(1, Math.ceil(block.text.length / (CONTENT_WIDTH * 8.5)));
+        const estimatedLines = Math.max(1, Math.ceil(richTextToPlain(block.text).length / (CONTENT_WIDTH * 8.5)));
         const ph = Math.min(remainH - 0.05, Math.max(0.28, estimatedLines * 0.22 + 0.1));
-        slide.addText(block.text, {
+        slide.addText(richTextRuns(block.text), {
           x: CONTENT_X, y: currentY, w: CONTENT_WIDTH, h: ph,
           fontFace: THEME.FONT, fontSize: THEME.FONT_PARAGRAPH,
           color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 4,
@@ -109,7 +110,7 @@ export function renderContentSlide(
       }
 
       case 'bullets': {
-        const bulletText = block.items.map((it) => `\u2022  ${it}`).join('\n');
+        const bulletText = listTextRuns(block.items, 'bullet');
         const bh = Math.min(remainH - 0.05, block.items.length * THEME.H_BULLET_ITEM + 0.08);
         slide.addText(bulletText, {
           x: CONTENT_X + 0.1, y: currentY, w: CONTENT_WIDTH - 0.1, h: bh,
@@ -121,7 +122,7 @@ export function renderContentSlide(
       }
 
       case 'numbered': {
-        const numText = block.items.map((it, i) => `${i + 1}.  ${it}`).join('\n');
+        const numText = listTextRuns(block.items, 'number');
         const nh = Math.min(remainH - 0.05, block.items.length * THEME.H_NUMBERED_ITEM + 0.08);
         slide.addText(numText, {
           x: CONTENT_X + 0.1, y: currentY, w: CONTENT_WIDTH - 0.1, h: nh,
@@ -133,7 +134,7 @@ export function renderContentSlide(
       }
 
       case 'callout': {
-        const textLines = Math.max(1, Math.ceil(block.text.length / 120));
+        const textLines = Math.max(1, Math.ceil(richTextToPlain(block.text).length / 120));
         const callH = Math.min(remainH - 0.05, Math.max(THEME.H_CALLOUT_MIN, textLines * 0.22 + 0.28));
         const bgCol = calloutBgColor(block.tone);
         const borderCol = calloutBorderColor(block.tone);
@@ -153,13 +154,16 @@ export function renderContentSlide(
           line: { color: borderCol, width: 0 },
         });
         // Label
-        slide.addText(`${labelStr}: ${block.label}`, {
+        slide.addText([
+          { text: `${labelStr}: `, options: { bold: true, color: labelCol } },
+          ...richTextRuns(block.label),
+        ], {
           x: CONTENT_X + 0.14, y: currentY + 0.06, w: CONTENT_WIDTH - 0.2, h: 0.22,
           fontFace: THEME.FONT, fontSize: THEME.FONT_CALLOUT_LABEL,
           bold: true, color: labelCol, align: 'left', valign: 'top',
         });
         // Text
-        slide.addText(block.text, {
+        slide.addText(richTextRuns(block.text), {
           x: CONTENT_X + 0.14, y: currentY + 0.28, w: CONTENT_WIDTH - 0.2, h: callH - 0.34,
           fontFace: THEME.FONT, fontSize: THEME.FONT_CALLOUT_TEXT,
           color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true,

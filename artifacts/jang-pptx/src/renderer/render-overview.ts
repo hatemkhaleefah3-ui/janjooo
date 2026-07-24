@@ -6,6 +6,7 @@ import {
   SLIDE_NUMBER_X, SLIDE_NUMBER_Y,
 } from '../template/geometry';
 import type { LectureDocument } from '../schema/lecture-types';
+import { listTextRuns, richTextRuns, richTextToPlain } from './rich-text';
 
 function addSectionHeader(slide: PptxGenJS.Slide, label: string): void {
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
@@ -53,8 +54,8 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
   });
 
   // ─── Left column: Introduction + Key Points ───────────────────────────────
-  if (lecture.overview.introduction) {
-    slide.addText(lecture.overview.introduction, {
+  if (richTextToPlain(lecture.overview.introduction)) {
+    slide.addText(richTextRuns(lecture.overview.introduction), {
       x: OVERVIEW_LAYOUT.LEFT_COL_X,
       y: OVERVIEW_LAYOUT.INTRO_Y,
       w: OVERVIEW_LAYOUT.LEFT_COL_W,
@@ -83,7 +84,7 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
   });
 
   if (lecture.overview.keyPoints.length > 0) {
-    const kpText = lecture.overview.keyPoints.map((kp) => `\u2022  ${kp}`).join('\n');
+    const kpText = listTextRuns(lecture.overview.keyPoints.map((text) => ({ text })), 'bullet');
     slide.addText(kpText, {
       x: OVERVIEW_LAYOUT.LEFT_COL_X,
       y: OVERVIEW_LAYOUT.KEYPOINTS_Y,

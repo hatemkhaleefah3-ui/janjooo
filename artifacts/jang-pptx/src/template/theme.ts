@@ -73,8 +73,18 @@ export const THEME = {
   CAPTION_COLOR: '64748B',
   SLIDE_NUMBER_COLOR: '94A3B8',
 
-  // ─── Font ────────────────────────────────────────────────────────────────
-  FONT: 'Calibri',
+  // ─── Font roles ──────────────────────────────────────────────────────────
+  bodyFont: 'Aptos',
+  headingFont: 'Aptos Display',
+  labelFont: 'Aptos',
+  accentFont: 'Aptos Display',
+  FONT: 'Aptos',
+  FONT_FALLBACK: 'Arial',
+  accentColor: 'C9922A',
+  highlightColor: 'FFF2A8',
+  titleColor: '1E3A5F',
+  bodyColor: '2D3748',
+  mutedColor: '718096',
 
   // Font sizes (points)
   FONT_COVER_TITLE: 36,
@@ -98,6 +108,7 @@ export const THEME = {
   FONT_OVERVIEW_KEYPOINT: 12,
   FONT_OVERVIEW_TOC: 12,
   FONT_MIN: 8,
+  FONT_MIN_TABLE: 8,
 
   // ─── Estimated content heights (inches, for pagination) ──────────────────
   H_SUBTITLE_BLOCK: 0.38,

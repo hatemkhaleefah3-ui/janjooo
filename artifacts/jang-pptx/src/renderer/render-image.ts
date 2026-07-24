@@ -6,6 +6,7 @@ import {
 } from '../template/geometry';
 import { fitImageContain, guessAspect } from './image-sizing';
 import type { ImageBlock, ImportedImage } from '../schema/lecture-types';
+import { richTextRuns, richTextToPlain } from './rich-text';
 
 function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
@@ -43,13 +44,18 @@ export function renderImageSlide(
 
   const importedImage = importedImages[block.slotId];
 
-  if (importedImage?.dataUrl) {
+  if (importedImage?.dataUrl && isUsableDataUrl(importedImage.dataUrl)) {
     const aspect = guessAspect(block.preferredAspect);
     const dims = fitImageContain(imgAreaX, imgAreaY, imgAreaW, imgAreaH, aspect);
     try {
       slide.addImage({
         data: importedImage.dataUrl,
         x: dims.x, y: dims.y, w: dims.w, h: dims.h,
+        sizing: {
+          type: block.fit,
+          w: imgAreaW,
+          h: imgAreaH,
+        },
       });
     } catch {
       // Fall through to placeholder on image error
@@ -61,7 +67,7 @@ export function renderImageSlide(
 
   // Caption
   const captionY = imgAreaY + imgAreaH + 0.1;
-  slide.addText(block.label, {
+  slide.addText(richTextRuns(block.label), {
     x: CONTENT_X, y: captionY, w: CONTENT_WIDTH, h: captionH,
     fontFace: THEME.FONT,
     fontSize: THEME.FONT_CAPTION,
@@ -104,14 +110,14 @@ function renderPlaceholder(
     color: THEME.PLACEHOLDER_TEXT, align: 'center', valign: 'middle',
   });
 
-  slide.addText(block.label, {
+    slide.addText(richTextRuns(block.label), {
     x: pX, y: midY + 0.05, w: pW, h: 0.28,
     fontFace: THEME.FONT, fontSize: 11,
     color: THEME.BODY_TEXT, align: 'center', valign: 'middle', wrap: true,
   });
 
   if (block.description) {
-    slide.addText(block.description, {
+    slide.addText(richTextRuns(block.description), {
       x: pX + 0.4, y: midY + 0.4, w: pW - 0.8, h: 0.45,
       fontFace: THEME.FONT, fontSize: 10, italic: true,
       color: THEME.MUTED_TEXT, align: 'center', valign: 'top', wrap: true,
@@ -125,4 +131,8 @@ function renderPlaceholder(
       color: THEME.MUTED_TEXT, align: 'center', valign: 'middle',
     });
   }
+}
+
+function isUsableDataUrl(dataUrl: string): boolean {
+  return /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$/i.test(dataUrl);
 }
