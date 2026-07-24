@@ -13,12 +13,13 @@ import { renderDedicatedTableSlides } from './render-table';
 import { renderDedicatedDiagramSlide } from './render-diagram';
 import { paginateContent } from './paginate-content';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
+import { richTextRuns, richTextToPlain } from './rich-text';
 
 function renderEnding(pptx: PptxGenJS, lecture: LectureDocument): void {
   const slide = pptx.addSlide();
   slide.background = { color: THEME.NAVY };
 
-  slide.addText(lecture.endNote || 'End of Lecture', {
+  slide.addText(richTextRuns(richTextToPlain(lecture.endNote) ? lecture.endNote : 'End of Lecture'), {
     x: CONTENT_X,
     y: ENDING_LAYOUT.TEXT_Y,
     w: CONTENT_WIDTH,
@@ -95,7 +96,7 @@ export function composeSlides(
             const hasImage = !!importedImages[fragment.block.slotId]?.dataUrl;
             if (!hasImage) {
               warnings.push(
-                `Image slot "${fragment.block.slotId}" (${fragment.block.label}) has no imported image — placeholder shown.`,
+                `Image slot "${fragment.block.slotId}" (${richTextToPlain(fragment.block.label)}) has no imported image — placeholder shown.`,
               );
             }
             renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);

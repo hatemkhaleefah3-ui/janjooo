@@ -4,6 +4,7 @@ import { generateLecturePptx } from '@/renderer/generate-lecture-pptx';
 import { sampleLecture } from '@/demo/sample-lecture';
 import { sampleImages } from '@/demo/sample-images';
 import type { LectureDocument, ImageBlock, ImportedImage } from '@/schema/lecture-types';
+import { richTextToPlain } from '@/renderer/rich-text';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Download, FileJson, Image as ImageIcon, Loader2, Play, Upload, XCircle, AlertTriangle } from 'lucide-react';
 
@@ -282,21 +283,21 @@ export default function App() {
                         <div key={block.slotId} className="flex gap-4 p-4 border border-border rounded-lg bg-muted/20 items-start">
                            <div className="w-20 h-20 bg-card rounded border border-border flex-shrink-0 overflow-hidden flex items-center justify-center shadow-sm">
                              {importedImages[block.slotId] ? (
-                               <img src={importedImages[block.slotId].dataUrl} alt={block.label} className="w-full h-full object-cover" />
+                               <img src={importedImages[block.slotId].dataUrl} alt={richTextToPlain(block.label)} className="w-full h-full object-cover" />
                              ) : (
                                <ImageIcon className="w-6 h-6 text-muted-foreground/30" />
                              )}
                            </div>
                            <div className="flex-1 min-w-0">
                              <div className="flex flex-col gap-1 mb-2">
-                               <span className="font-semibold truncate text-sm leading-tight">{block.label}</span>
+                               <span className="font-semibold truncate text-sm leading-tight">{richTextToPlain(block.label)}</span>
                                <span className="text-[11px] font-mono bg-primary/5 text-primary/80 border border-primary/10 px-1.5 py-0.5 rounded self-start">
                                  {block.slotId}
                                </span>
                              </div>
-                             {block.description && (
-                               <p className="text-xs text-muted-foreground mb-2 line-clamp-2" title={block.description}>
-                                 {block.description}
+                              {richTextToPlain(block.description) && (
+                                <p className="text-xs text-muted-foreground mb-2 line-clamp-2" title={richTextToPlain(block.description)}>
+                                  {richTextToPlain(block.description)}
                                </p>
                              )}
                              {block.sourceReference && (

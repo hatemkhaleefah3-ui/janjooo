@@ -4,6 +4,7 @@ import { estimateTextHeight } from './render-text';
 import type {
   LectureBlock, LectureSlide, ImageBlock, TableBlock, DiagramBlock,
 } from '../schema/lecture-types';
+import { richTextToPlain } from './rich-text';
 
 export type SlideFragment =
   | { type: 'content'; blocks: LectureBlock[] }
@@ -48,7 +49,7 @@ export function estimateBlockHeight(block: LectureBlock): number {
     case 'numbered':
       return block.items.length * THEME.H_NUMBERED_ITEM + 0.08 + GAP;
     case 'callout': {
-      const textLines = Math.max(1, Math.ceil(block.text.length / 120));
+      const textLines = Math.max(1, Math.ceil(richTextToPlain(block.text).length / 120));
       return Math.max(THEME.H_CALLOUT_MIN, textLines * 0.22 + 0.28) + GAP;
     }
     case 'table': {
@@ -82,7 +83,7 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
 
   const availFor = (first: boolean): number => {
     const hasTitle = first && !!slide.slideTitle.trim();
-    const hasSubtitle = first && !!slide.slideSubtitle.trim();
+    const hasSubtitle = first && !!richTextToPlain(slide.slideSubtitle).trim();
     return getAvailableHeight(hasTitle, hasSubtitle) - 0.1;
   };
 
