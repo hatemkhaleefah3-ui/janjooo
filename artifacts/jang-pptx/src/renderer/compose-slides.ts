@@ -1,9 +1,8 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
 import { ENDING_LAYOUT } from '../template/slide-layouts';
-import {
-  CONTENT_X, CONTENT_WIDTH, SLIDE_NUMBER_X, SLIDE_NUMBER_Y,
-} from '../template/geometry';
+import { CONTENT_X } from '../template/geometry';
+import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
 import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
@@ -18,63 +17,50 @@ import { richTextRuns, richTextToPlain } from './rich-text';
 function renderEnding(pptx: PptxGenJS, lecture: LectureDocument): void {
   const slide = pptx.addSlide();
   slide.background = { color: THEME.NAVY };
-
-  slide.addText(richTextRuns(richTextToPlain(lecture.endNote) ? lecture.endNote : 'End of Lecture'), {
-    x: CONTENT_X,
-    y: ENDING_LAYOUT.TEXT_Y,
-    w: CONTENT_WIDTH,
-    h: ENDING_LAYOUT.TEXT_H,
-    fontFace: THEME.FONT,
-    fontSize: 28,
-    bold: true,
-    color: THEME.WHITE,
-    align: 'center',
-    valign: 'middle',
-    wrap: true,
-  });
-
-  // Gold underline accent
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: CONTENT_X + CONTENT_WIDTH * 0.28,
-    y: ENDING_LAYOUT.UNDERLINE_Y,
-    w: CONTENT_WIDTH * 0.44,
-    h: 0.04,
-    fill: { color: THEME.GOLD },
-    line: { color: THEME.GOLD, width: 0 },
+    x: 8.68, y: 0, w: THEME.SLIDE_WIDTH - 8.68, h: THEME.SLIDE_HEIGHT,
+    fill: { color: THEME.GRAPHITE }, line: { color: THEME.GRAPHITE, width: 0 },
+  });
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: 8.68, y: 0, w: 0, h: THEME.SLIDE_HEIGHT,
+    line: { color: THEME.DARK_RULE, width: 1 },
+  });
+  addOrbitArtwork(slide, 9.12, 1.85, 3.55, 3.85);
+  addEditorialHeader(slide, 'Discussion / next step', '', true);
+
+  slide.addText(richTextRuns(richTextToPlain(lecture.endNote) ? lecture.endNote : 'Questions and discussion'), {
+    x: CONTENT_X, y: ENDING_LAYOUT.TEXT_Y, w: 6.45, h: ENDING_LAYOUT.TEXT_H,
+    fontFace: THEME.headingFont, fontSize: 30,
+    bold: true, color: THEME.WHITE, margin: 0,
+    align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+  });
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: CONTENT_X, y: ENDING_LAYOUT.UNDERLINE_Y, w: 1.12, h: 0,
+    line: { color: THEME.WHITE, width: 2 },
+  });
+  slide.addText(lecture.documentTitle, {
+    x: CONTENT_X, y: 5.9, w: 6.4, h: 0.3,
+    fontFace: THEME.bodyFont, fontSize: 11,
+    color: THEME.MUTED_ON_DARK, margin: 0,
+    align: 'left', valign: 'top', fit: 'shrink',
   });
 
-  slide.slideNumber = {
-    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SLIDE_NUMBER,
-    color: THEME.SLIDE_NUMBER_COLOR,
-  };
+  addEditorialFooter(slide, lecture.documentTitle, true);
 }
 
-/**
- * Builds all slides in the correct order:
- * Cover → Overview → (Section title → Section content slides)+ → Ending
- */
 export function composeSlides(
   pptx: PptxGenJS,
   lecture: LectureDocument,
   importedImages: Record<string, ImportedImage>,
   warnings: string[],
 ): void {
-  // 1. Cover slide
   renderCover(pptx, lecture);
-
-  // 2. Overview slide
   renderOverview(pptx, lecture);
 
-  // 3. Sections
   for (let si = 0; si < lecture.sections.length; si++) {
     const section = lecture.sections[si];
-
-    // Section title slide
     renderSection(pptx, section, si);
 
-    // Content slides for each slide in the section
     for (const lectureSlide of section.slides) {
       const fragments = paginateContent(lectureSlide);
       let contentPageIndex = 0;
@@ -108,6 +94,5 @@ export function composeSlides(
     }
   }
 
-  // 4. Ending slide
   renderEnding(pptx, lecture);
 }
