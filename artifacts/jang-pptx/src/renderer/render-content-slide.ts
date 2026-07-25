@@ -1,7 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
 import {
-  CONTENT_X, CONTENT_WIDTH, getContentYStart,
+  CONTENT_X, CONTENT_WIDTH, getContentYStart, SAFE_BOTTOM,
   IMAGE_COLUMN_X, IMAGE_COLUMN_WIDTH, TEXT_WIDTH_WITH_IMAGE,
 } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
@@ -66,14 +66,44 @@ export function renderContentSlide(
     });
   }
 
+  const nonImageBlocks = blocks.filter((block) => block.type !== 'image');
   if (imageBlock) {
     const imageAreaY = getContentYStart(hasTitle, hasSubtitle);
-    const imageAreaH = Math.max(1.2, THEME.SLIDE_HEIGHT - 0.7 - imageAreaY);
+    const isMixedPage = nonImageBlocks.length > 0;
+    const imageLabel = richTextToPlain(imageBlock.label).trim();
+    const imageDescription = richTextToPlain(imageBlock.description).trim();
+    const sourceReference = imageBlock.sourceReference.trim();
+    const labelHeight = isMixedPage && imageLabel ? 0.34 : 0;
+    const descriptionHeight = isMixedPage && imageDescription ? 0.48 : 0;
+    const sourceHeight = sourceReference ? 0.2 : 0;
+    const captionReserve = labelHeight + descriptionHeight + sourceHeight
+      + (labelHeight || descriptionHeight || sourceHeight ? 0.16 : 0);
+    const imageAreaH = Math.max(1.2, SAFE_BOTTOM - imageAreaY - captionReserve);
     const result = paintImageIntoArea(slide, imageBlock, importedImages, IMAGE_COLUMN_X, imageAreaY, IMAGE_COLUMN_WIDTH, imageAreaH);
     warnings.push(...result.warnings);
-    if (imageBlock.sourceReference.trim()) {
-      slide.addText(`Source: ${imageBlock.sourceReference}`, {
-        x: IMAGE_COLUMN_X, y: imageAreaY + imageAreaH + 0.06, w: IMAGE_COLUMN_WIDTH, h: 0.2,
+
+    let captionY = imageAreaY + imageAreaH + 0.08;
+    if (isMixedPage && imageLabel) {
+      slide.addText(richTextRuns(imageBlock.label), {
+        x: IMAGE_COLUMN_X, y: captionY, w: IMAGE_COLUMN_WIDTH, h: labelHeight,
+        fontFace: THEME.headingFont, fontSize: 10, bold: true,
+        color: THEME.DARK_TEXT, margin: 0,
+        align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+      });
+      captionY += labelHeight;
+    }
+    if (isMixedPage && imageDescription) {
+      slide.addText(richTextRuns(imageBlock.description), {
+        x: IMAGE_COLUMN_X, y: captionY, w: IMAGE_COLUMN_WIDTH, h: descriptionHeight,
+        fontFace: THEME.bodyFont, fontSize: 9,
+        color: THEME.BODY_TEXT, margin: 0,
+        align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+      });
+      captionY += descriptionHeight;
+    }
+    if (sourceReference) {
+      slide.addText(`Source: ${sourceReference}`, {
+        x: IMAGE_COLUMN_X, y: captionY, w: IMAGE_COLUMN_WIDTH, h: sourceHeight,
         fontFace: THEME.bodyFont, fontSize: THEME.FONT_CAPTION,
         italic: true, color: THEME.CAPTION_COLOR, margin: 0,
         align: 'left', valign: 'top', fit: 'shrink',
@@ -82,7 +112,6 @@ export function renderContentSlide(
   }
 
   let currentY = getContentYStart(hasTitle, hasSubtitle);
-  const nonImageBlocks = blocks.filter((block) => block.type !== 'image');
   if (imageBlock && nonImageBlocks.length === 0) {
     const label = richTextToPlain(imageBlock.label).trim();
     const description = richTextToPlain(imageBlock.description).trim();
