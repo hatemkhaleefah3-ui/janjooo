@@ -1,4 +1,4 @@
-import Ajv from 'ajv';
+import Ajv, { type ErrorObject } from 'ajv';
 import addFormats from 'ajv-formats';
 import lectureSchemaJson from './lecture-schema.json';
 import type { LectureDocument, ImageBlock, TableBlock, DiagramBlock, RichText, ListItem } from './lecture-types';
@@ -35,6 +35,19 @@ function isGenericLabel(label: string): boolean {
   return GENERIC_LABEL_RE.some((re) => re.test(label.trim()));
 }
 
+function formatAjvError(error: ErrorObject): string {
+  const path = error.instancePath || '(root)';
+  if (error.keyword === 'minItems') {
+    if (path.endsWith('/slides')) return `${path}: section has no slides`;
+    if (path.endsWith('/blocks')) return `${path}: slide has no blocks`;
+    if (path.includes('/diagramRows/')) return `${path}: diagram has an empty row`;
+  }
+  if (error.keyword === 'minLength' && path.includes('/diagramRows/')) {
+    return `${path}: diagram has an empty node`;
+  }
+  return `${path}: ${error.message}`;
+}
+
 /**
  * Validates a raw lecture object against the JSON Schema and semantic rules.
  * Returns a structured result with errors (blocking) and warnings (non-blocking).
@@ -47,8 +60,7 @@ export function validateLecture(data: unknown): ValidationResult {
   const schemaValid = ajvValidate(data);
   if (!schemaValid && ajvValidate.errors) {
     for (const err of ajvValidate.errors) {
-      const path = err.instancePath || '(root)';
-      errors.push(`${path}: ${err.message}`);
+      errors.push(formatAjvError(err));
     }
     return { valid: false, errors, warnings };
   }
@@ -87,7 +99,7 @@ export function validateLecture(data: unknown): ValidationResult {
       }
       slideIds.add(slide.slideId);
 
-    const titleTrimmed = slide.slideTitle.trim();
+      const titleTrimmed = slide.slideTitle.trim();
       if (titleTrimmed) {
         if (nonEmptySlideTitles.has(titleTrimmed)) {
           errors.push(`Repeated non-empty slide title: "${titleTrimmed}"`);
@@ -189,7 +201,14 @@ export function validateLecture(data: unknown): ValidationResult {
         }
         if (block.type === 'table' && block.tableType === 'heatmap' && block.heatmap) {
           if (block.heatmap.max <= block.heatmap.min) errors.push(`${block.blockId}.heatmap.max must be greater than min`);
-          if (block.heatmap.values.length !== block.rows.length) errors.push(`${block.blockId}.heatmap.values must match row count`);
+          if (block.heatmap.values.length !== block.rows.length) {
+            errors.push(`${block.blockId}.heatmap.values must match row count`);
+          }
+          block.heatmap.values.forEach((row, rowIndex) => {
+            if (row.length !== block.headers.length) {
+              errors.push(`${block.blockId}.heatmap.values[${rowIndex}] must match column count`);
+            }
+          });
         }
       }
     }
@@ -200,11 +219,17 @@ export function validateLecture(data: unknown): ValidationResult {
     const unmapped = new Set(doc.extractionAudit.unmappedSourceReferences);
     for (const ref of unmapped) if (covered.has(ref)) errors.push(`Source reference "${ref}" cannot be both covered and unmapped`);
     const allRefs = new Set<string>();
-    for (const section of doc.sections) for (const slide of section.slides) {
-      slide.sourceReferences.forEach((ref) => allRefs.add(ref));
-      section.slides.forEach((s) => s.blocks.forEach((b) => b.sourceReferences.forEach((ref) => allRefs.add(ref))));
+    for (const section of doc.sections) {
+      for (const slide of section.slides) {
+        slide.sourceReferences.forEach((ref) => allRefs.add(ref));
+        slide.blocks.forEach((block) => block.sourceReferences.forEach((ref) => allRefs.add(ref)));
+      }
     }
-    for (const ref of allRefs) if (!covered.has(ref) && !unmapped.has(ref)) warnings.push(`Extraction audit: source reference "${ref}" is not covered or unmapped`);
+    for (const ref of allRefs) {
+      if (!covered.has(ref) && !unmapped.has(ref)) {
+        warnings.push(`Extraction audit: source reference "${ref}" is not covered or unmapped`);
+      }
+    }
   }
 
   // ─── Extraction audit warnings ────────────────────────────────────────────
@@ -217,5 +242,7 @@ export function validateLecture(data: unknown): ValidationResult {
     }
   }
 
-  return { valid: errors.length === 0, errors, warnings };
+  const uniqueErrors = [...new Set(errors)];
+  const uniqueWarnings = [...new Set(warnings)];
+  return { valid: uniqueErrors.length === 0, errors: uniqueErrors, warnings: uniqueWarnings };
 }

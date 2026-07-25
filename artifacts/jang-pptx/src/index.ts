@@ -1,34 +1,20 @@
-/**
- * Jang PPTX Template Engine — Integration Module
- *
- * Usage in the Jang website:
- * ```ts
- * import { generateLecturePptx, validateLecture, lectureSchema } from './jang-pptx-engine';
- *
- * // 1. Validate extracted Gemini output
- * const result = validateLecture(geminiOutput);
- * if (!result.valid) throw new Error(result.errors.join('\n'));
- *
- * // 2. Generate the PPTX after user imports images
- * const { blob, warnings } = await generateLecturePptx(lecture, importedImages);
- *
- * // 3. Trigger download
- * const url = URL.createObjectURL(blob);
- * const a = document.createElement('a');
- * a.href = url;
- * a.download = `${lecture.documentTitle}.pptx`;
- * a.click();
- * URL.revokeObjectURL(url);
- * ```
- *
- * See README.md for instructions on exporting this engine to another project.
- */
-
-export { generateLecturePptx } from './renderer/generate-lecture-pptx';
-export type { GenerationResult } from './renderer/generate-lecture-pptx';
+/** Public API for the deterministic Jang PPTX engine. */
+export { generateLecturePptx, LectureValidationError } from './renderer/generate-lecture-pptx';
+export type {
+  GenerationOptions,
+  GenerationResult,
+} from './renderer/generate-lecture-pptx';
 
 export { validateLecture, lectureSchema } from './schema/validate-lecture';
 export type { ValidationResult } from './schema/validate-lecture';
+
+export {
+  DEFAULT_THEME,
+  THEME,
+  configureTheme,
+  resetTheme,
+} from './template/theme';
+export type { JangTheme, ThemeOverrides } from './template/theme';
 
 export type {
   LectureDocument,
@@ -46,6 +32,11 @@ export type {
   CalloutBlock,
   TableBlock,
   DiagramBlock,
+  DiagramPathway,
   ImageBlock,
+  ListItem,
+  RichText,
+  RichTextRun,
+  TextEmphasis,
   SchemaVersion,
 } from './schema/lecture-types';

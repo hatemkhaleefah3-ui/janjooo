@@ -4,25 +4,21 @@ import {
   CONTENT_X, CONTENT_WIDTH, SECTION_HEADER_Y,
   SLIDE_NUMBER_X, SLIDE_NUMBER_Y, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
 } from '../template/geometry';
-import { fitImageContain, guessAspect } from './image-sizing';
+import { extractIntrinsicImageSize, fitImageContain, fitImageCover, isUsableImageDataUrl } from './image-sizing';
 import type { ImageBlock, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
+export interface ImageRenderResult { rendered: boolean; warnings: string[]; }
+
 function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: 0, y: SECTION_HEADER_Y,
-    w: THEME.SLIDE_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fill: { color: THEME.SECTION_HEADER_BG },
-    line: { color: THEME.SECTION_HEADER_BG, width: 0 },
+    x: 0, y: SECTION_HEADER_Y, w: THEME.SLIDE_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
+    fill: { color: THEME.SECTION_HEADER_BG }, line: { color: THEME.SECTION_HEADER_BG, width: 0 },
   });
   slide.addText(sectionTitle, {
-    x: CONTENT_X, y: SECTION_HEADER_Y,
-    w: CONTENT_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SECTION_HEADER,
-    color: THEME.SECTION_HEADER_TEXT,
-    align: 'left',
-    valign: 'middle',
+    x: CONTENT_X, y: SECTION_HEADER_Y, w: CONTENT_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
+    fontFace: THEME.FONT, fontSize: THEME.FONT_SECTION_HEADER, color: THEME.SECTION_HEADER_TEXT,
+    align: 'left', valign: 'middle',
   });
 }
 
@@ -31,108 +27,100 @@ export function renderImageSlide(
   block: ImageBlock,
   importedImages: Record<string, ImportedImage>,
   sectionTitle: string,
-): void {
+): ImageRenderResult {
+  const warnings: string[] = [];
   const slide = pptx.addSlide();
   slide.background = { color: THEME.SLIDE_BG };
   addSectionHeader(slide, sectionTitle);
 
   const captionH = THEME.H_CAPTION + 0.1;
-  const imgAreaX = CONTENT_X;
-  const imgAreaY = CONTENT_Y_AFTER_HEADER + 0.1;
-  const imgAreaW = CONTENT_WIDTH;
-  const imgAreaH = SAFE_BOTTOM - imgAreaY - captionH - 0.15;
+  const area = {
+    x: CONTENT_X,
+    y: CONTENT_Y_AFTER_HEADER + 0.1,
+    w: CONTENT_WIDTH,
+    h: SAFE_BOTTOM - (CONTENT_Y_AFTER_HEADER + 0.1) - captionH - 0.15,
+  };
+  const imported = importedImages[block.slotId];
+  let rendered = false;
 
-  const importedImage = importedImages[block.slotId];
-
-  if (importedImage?.dataUrl && isUsableDataUrl(importedImage.dataUrl)) {
-    const aspect = guessAspect(block.preferredAspect);
-    const dims = fitImageContain(imgAreaX, imgAreaY, imgAreaW, imgAreaH, aspect);
-    try {
-      slide.addImage({
-        data: importedImage.dataUrl,
-        x: dims.x, y: dims.y, w: dims.w, h: dims.h,
-        sizing: {
-          type: block.fit,
-          w: imgAreaW,
-          h: imgAreaH,
-        },
-      });
-    } catch {
-      // Fall through to placeholder on image error
-      renderPlaceholder(slide, block, imgAreaX, imgAreaY, imgAreaW, imgAreaH);
-    }
+  if (!imported?.dataUrl) {
+    warnings.push(`Image slot "${block.slotId}" (${richTextToPlain(block.label)}) has no imported image — placeholder shown.`);
+  } else if (!isUsableImageDataUrl(imported.dataUrl)) {
+    warnings.push(`Image slot "${block.slotId}" is not a supported PNG, JPEG, GIF, WebP, or SVG data URL — placeholder shown.`);
   } else {
-    renderPlaceholder(slide, block, imgAreaX, imgAreaY, imgAreaW, imgAreaH);
+    const intrinsic = extractIntrinsicImageSize(imported.dataUrl);
+    if (!intrinsic) {
+      warnings.push(`Image slot "${block.slotId}" could not be decoded safely — placeholder shown.`);
+    } else {
+      // The decoded file dimensions are authoritative. preferredAspect is a
+      // layout hint for extraction/UI workflows and must never stretch pixels.
+      const aspect = intrinsic.aspect;
+      try {
+        if (block.fit === 'cover') {
+          const frame = fitImageCover(area.x, area.y, area.w, area.h);
+          slide.addImage({
+            data: imported.dataUrl,
+            ...frame,
+            sizing: { type: 'cover', w: frame.w, h: frame.h },
+          });
+        } else {
+          const dimensions = fitImageContain(area.x, area.y, area.w, area.h, aspect);
+          slide.addImage({ data: imported.dataUrl, ...dimensions });
+        }
+        rendered = true;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        warnings.push(`Image slot "${block.slotId}" failed to embed (${message}) — placeholder shown.`);
+      }
+    }
   }
 
-  // Caption
-  const captionY = imgAreaY + imgAreaH + 0.1;
-  slide.addText(richTextRuns(block.label), {
-    x: CONTENT_X, y: captionY, w: CONTENT_WIDTH, h: captionH,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_CAPTION,
-    italic: true,
-    color: THEME.CAPTION_COLOR,
-    align: 'center',
-    valign: 'top',
-    wrap: true,
-  });
+  if (!rendered) renderPlaceholder(slide, block, area.x, area.y, area.w, area.h);
 
+  slide.addText(richTextRuns(block.label), {
+    x: CONTENT_X, y: area.y + area.h + 0.1, w: CONTENT_WIDTH, h: captionH,
+    fontFace: THEME.FONT, fontSize: THEME.FONT_CAPTION, italic: true,
+    color: THEME.CAPTION_COLOR, align: 'center', valign: 'top', wrap: true,
+  });
   slide.slideNumber = {
-    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SLIDE_NUMBER,
-    color: THEME.SLIDE_NUMBER_COLOR,
+    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y, fontFace: THEME.FONT,
+    fontSize: THEME.FONT_SLIDE_NUMBER, color: THEME.SLIDE_NUMBER_COLOR,
   };
+  return { rendered, warnings };
 }
 
-function renderPlaceholder(
-  slide: PptxGenJS.Slide,
-  block: ImageBlock,
-  areaX: number, areaY: number,
-  areaW: number, areaH: number,
-): void {
+function renderPlaceholder(slide: PptxGenJS.Slide, block: ImageBlock, areaX: number, areaY: number, areaW: number, areaH: number): void {
   const padX = areaW * 0.05;
-  const pX = areaX + padX;
-  const pW = areaW - 2 * padX;
-
+  const x = areaX + padX;
+  const w = areaW - 2 * padX;
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: pX, y: areaY, w: pW, h: areaH,
+    x, y: areaY, w, h: areaH,
     fill: { color: THEME.PLACEHOLDER_BG },
     line: { color: THEME.PLACEHOLDER_BORDER, width: 1.5, dashType: 'dash' },
   });
-
   const midY = areaY + areaH / 2;
-
   slide.addText('[Image not imported]', {
-    x: pX, y: midY - 0.3, w: pW, h: 0.32,
+    x, y: midY - 0.3, w, h: 0.32,
     fontFace: THEME.FONT, fontSize: 13, bold: true,
     color: THEME.PLACEHOLDER_TEXT, align: 'center', valign: 'middle',
   });
-
-    slide.addText(richTextRuns(block.label), {
-    x: pX, y: midY + 0.05, w: pW, h: 0.28,
-    fontFace: THEME.FONT, fontSize: 11,
-    color: THEME.BODY_TEXT, align: 'center', valign: 'middle', wrap: true,
+  slide.addText(richTextRuns(block.label), {
+    x, y: midY + 0.05, w, h: 0.28,
+    fontFace: THEME.FONT, fontSize: 11, color: THEME.BODY_TEXT,
+    align: 'center', valign: 'middle', wrap: true,
   });
-
-  if (block.description) {
+  if (richTextToPlain(block.description).trim()) {
     slide.addText(richTextRuns(block.description), {
-      x: pX + 0.4, y: midY + 0.4, w: pW - 0.8, h: 0.45,
+      x: x + 0.4, y: midY + 0.4, w: w - 0.8, h: 0.45,
       fontFace: THEME.FONT, fontSize: 10, italic: true,
       color: THEME.MUTED_TEXT, align: 'center', valign: 'top', wrap: true,
     });
   }
-
   if (block.sourceReference) {
     slide.addText(`Source: ${block.sourceReference}`, {
-      x: pX, y: areaY + areaH - 0.28, w: pW, h: 0.24,
-      fontFace: THEME.FONT, fontSize: 9,
-      color: THEME.MUTED_TEXT, align: 'center', valign: 'middle',
+      x, y: areaY + areaH - 0.28, w, h: 0.24,
+      fontFace: THEME.FONT, fontSize: 9, color: THEME.MUTED_TEXT,
+      align: 'center', valign: 'middle',
     });
   }
-}
-
-function isUsableDataUrl(dataUrl: string): boolean {
-  return /^data:image\/(?:png|jpe?g|gif|webp|svg\+xml);base64,[A-Za-z0-9+/=\s]+$/i.test(dataUrl);
 }

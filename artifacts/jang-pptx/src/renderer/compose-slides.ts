@@ -10,7 +10,7 @@ import { renderSection } from './render-section';
 import { renderContentSlide } from './render-content-slide';
 import { renderImageSlide } from './render-image';
 import { renderDedicatedTableSlides } from './render-table';
-import { renderDedicatedDiagramSlide } from './render-diagram';
+import { renderDedicatedDiagramSlides } from './render-diagram';
 import { paginateContent } from './paginate-content';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
@@ -93,20 +93,15 @@ export function composeSlides(
             break;
           }
           case 'image': {
-            const hasImage = !!importedImages[fragment.block.slotId]?.dataUrl;
-            if (!hasImage) {
-              warnings.push(
-                `Image slot "${fragment.block.slotId}" (${richTextToPlain(fragment.block.label)}) has no imported image — placeholder shown.`,
-              );
-            }
-            renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);
+            const result = renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);
+            warnings.push(...result.warnings);
             break;
           }
           case 'dedicated-table':
             renderDedicatedTableSlides(pptx, fragment.block, section.sectionTitle);
             break;
           case 'dedicated-diagram':
-            renderDedicatedDiagramSlide(pptx, fragment.block, section.sectionTitle);
+            renderDedicatedDiagramSlides(pptx, fragment.block, section.sectionTitle);
             break;
         }
       }

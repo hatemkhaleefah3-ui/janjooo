@@ -1,172 +1,112 @@
-import { describe, it, expect } from 'vitest';
-import { paginateContent, isDedicatedBlock, estimateBlockHeight } from '../renderer/paginate-content';
-import type { LectureSlide, LectureBlock } from '../schema/lecture-types';
+import { describe, expect, it } from 'vitest';
+import { paginateContent, isDedicatedBlock } from '../renderer/paginate-content';
+import { richTextToPlain } from '../renderer/rich-text';
+import type { LectureBlock, LectureSlide } from '../schema/lecture-types';
 
-function makeSlide(blocks: LectureBlock[], title = '', subtitle = ''): LectureSlide {
-  return {
-    slideId: 'test-slide',
-    slideTitle: title,
-    slideSubtitle: subtitle,
-    sourceReferences: [],
-    blocks,
-  };
+function makeSlide(blocks: LectureBlock[]): LectureSlide {
+  return { slideId: 'slide', slideTitle: 'A title', slideSubtitle: 'A subtitle', sourceReferences: [], blocks };
 }
 
-describe('isDedicatedBlock', () => {
-  it('marks image blocks as dedicated', () => {
-    expect(isDedicatedBlock({
-      blockId: 'x', type: 'image', slotId: 'img-1', label: 'Test image',
-      description: '', important: true, sourceReference: 'p1',
-      fit: 'contain', preferredAspect: 'automatic', sourceReferences: [],
-    })).toBe(true);
+describe('deterministic pagination', () => {
+  it('routes image, wide table, and large diagram to dedicated renderers', () => {
+    expect(isDedicatedBlock({ blockId: 'i', type: 'image', slotId: 's', label: 'Specific image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'automatic', sourceReferences: [] })).toBe(true);
+    expect(isDedicatedBlock({ blockId: 't', type: 'table', label: 'T', headers: ['1','2','3','4'], rows: [], sourceReferences: [] })).toBe(true);
+    expect(isDedicatedBlock({ blockId: 'd', type: 'diagram', label: 'D', diagramRows: [['1','2','3'],['4','5']], sourceReferences: [] })).toBe(true);
   });
 
-  it('marks tables with > 3 columns as dedicated', () => {
-    expect(isDedicatedBlock({
-      blockId: 'x', type: 'table', label: 'Large table',
-      headers: ['A', 'B', 'C', 'D'], rows: [],
-      sourceReferences: [],
-    })).toBe(true);
+  it('splits a long paragraph without losing or reordering characters', () => {
+    const source = Array.from({ length: 180 }, (_, index) => `Sentence ${index}. `).join('');
+    const fragments = paginateContent(makeSlide([{ blockId: 'p', type: 'paragraph', text: source, sourceReferences: [] }]));
+    const reconstructed = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block): block is Extract<LectureBlock, { type: 'paragraph' }> => block.type === 'paragraph')
+      .map((block) => richTextToPlain(block.text)).join('');
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(reconstructed).toBe(source);
   });
 
-  it('does NOT mark tables with <= 3 columns as dedicated', () => {
-    expect(isDedicatedBlock({
-      blockId: 'x', type: 'table', label: 'Small table',
-      headers: ['A', 'B', 'C'], rows: [],
-      sourceReferences: [],
-    })).toBe(false);
-  });
-
-  it('marks diagrams with > 4 total nodes as dedicated', () => {
-    expect(isDedicatedBlock({
-      blockId: 'x', type: 'diagram', label: 'Large diagram',
-      diagramRows: [['A', 'B', 'C'], ['D', 'E']],
-      sourceReferences: [],
-    })).toBe(true);
-  });
-
-  it('does NOT mark diagrams with <= 4 total nodes as dedicated', () => {
-    expect(isDedicatedBlock({
-      blockId: 'x', type: 'diagram', label: 'Small diagram',
-      diagramRows: [['A'], ['B'], ['C']],
-      sourceReferences: [],
-    })).toBe(false);
-  });
-});
-
-describe('estimateBlockHeight', () => {
-  it('returns positive heights for all block types', () => {
-    const blocks: LectureBlock[] = [
-      { blockId: 'a', type: 'subtitle', text: 'Hello', sourceReferences: [] },
-      { blockId: 'b', type: 'paragraph', text: 'A paragraph with some text.', sourceReferences: [] },
-      { blockId: 'c', type: 'bullets', items: ['A', 'B', 'C'], sourceReferences: [] },
-      { blockId: 'd', type: 'numbered', items: ['Step 1', 'Step 2'], sourceReferences: [] },
-      { blockId: 'e', type: 'callout', label: 'Note', text: 'Pay attention.', tone: 'note', sourceReferences: [] },
-      {
-        blockId: 'f', type: 'table', label: 'T', headers: ['X', 'Y'],
-        rows: [['a', 'b'], ['c', 'd']], sourceReferences: [],
-      },
-      {
-        blockId: 'g', type: 'diagram', label: 'D',
-        diagramRows: [['Node A'], ['Node B']], sourceReferences: [],
-      },
-    ];
-    for (const b of blocks) {
-      expect(estimateBlockHeight(b)).toBeGreaterThan(0);
+  it('continues numbered lists with the correct starting number', () => {
+    const items = Array.from({ length: 60 }, (_, index) => `Step ${index + 1}`);
+    const fragments = paginateContent(makeSlide([{ blockId: 'n', type: 'numbered', items, sourceReferences: [] }]));
+    const blocks = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block): block is Extract<LectureBlock, { type: 'numbered' }> => block.type === 'numbered');
+    expect(blocks.length).toBeGreaterThan(1);
+    expect(blocks.flatMap((block) => block.items.map((item) => typeof item === 'string' ? item : richTextToPlain(item.text)))).toEqual(items);
+    let consumed = 0;
+    for (const block of blocks) {
+      expect(block.startAt ?? 1).toBe(consumed + 1);
+      consumed += block.items.length;
     }
   });
 
-  it('returns 0 for image blocks (handled separately)', () => {
-    expect(estimateBlockHeight({
-      blockId: 'img', type: 'image', slotId: 's1', label: 'Photo of cell',
-      description: '', important: true, sourceReference: 'p1',
-      fit: 'contain', preferredAspect: 'wide', sourceReferences: [],
-    })).toBe(0);
+  it('creates real inline table continuations with every source row', () => {
+    const rows = Array.from({ length: 45 }, (_, index) => [`row-${index}`, String(index)]);
+    const fragments = paginateContent(makeSlide([{ blockId: 't', type: 'table', label: 'Long table', headers: ['Name','Value'], rows, sourceReferences: [] }]));
+    const tables = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block): block is Extract<LectureBlock, { type: 'table' }> => block.type === 'table');
+    expect(tables.length).toBeGreaterThan(1);
+    expect(tables.flatMap((table) => table.rows)).toEqual(rows);
   });
 });
 
-describe('paginateContent', () => {
-  it('produces one content fragment for a few small blocks', () => {
-    const slide = makeSlide([
-      { blockId: 'b1', type: 'subtitle', text: 'Sub', sourceReferences: [] },
-      { blockId: 'b2', type: 'paragraph', text: 'Short text.', sourceReferences: [] },
-    ]);
-    const fragments = paginateContent(slide);
-    expect(fragments.length).toBe(1);
-    expect(fragments[0].type).toBe('content');
+describe('paginateContent — zero content loss', () => {
+  it('splits a long paragraph and preserves every character', () => {
+    const text = Array.from({ length: 80 }, (_, index) => `Sentence ${index} explains a deterministic lecture concept. `).join('');
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'long-paragraph', type: 'paragraph', text, sourceReferences: [] },
+    ]));
+    const output = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block) => block.type === 'paragraph')
+      .map((block) => typeof block.text === 'string' ? block.text : block.text.map((run) => run.text).join(''))
+      .join('');
+    expect(fragments.length).toBeGreaterThan(1);
+    expect(output).toBe(text);
   });
 
-  it('produces an image fragment for an image block', () => {
-    const slide = makeSlide([
+  it('splits long bullet lists without dropping or reordering items', () => {
+    const items = Array.from({ length: 70 }, (_, index) => `Bullet ${index}: ${'detail '.repeat(6)}`);
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'long-bullets', type: 'bullets', items, sourceReferences: [] },
+    ]));
+    const output = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block) => block.type === 'bullets')
+      .flatMap((block) => block.items)
+      .map((item) => typeof item === 'string'
+        ? item
+        : typeof item.text === 'string' ? item.text : item.text.map((run) => run.text).join(''));
+    expect(output).toEqual(items);
+  });
+
+  it('continues numbered-list numbering across slides', () => {
+    const items = Array.from({ length: 60 }, (_, index) => `Step ${index + 1}: ${'explanation '.repeat(4)}`);
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'long-numbered', type: 'numbered', items, startAt: 4, sourceReferences: [] },
+    ]));
+    const numbered = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block) => block.type === 'numbered');
+    expect(numbered.length).toBeGreaterThan(1);
+    let expectedStart = 4;
+    for (const block of numbered) {
+      expect(block.startAt).toBe(expectedStart);
+      expectedStart += block.items.filter((item) =>
+        !(typeof item !== 'string' && (item as { __continued?: boolean }).__continued),
+      ).length;
+    }
+  });
+
+  it('splits a tall inline table into real continuation blocks', () => {
+    const rows = Array.from({ length: 48 }, (_, index) => [`Row ${index}`, `Value ${index}`]);
+    const fragments = paginateContent(makeSlide([
       {
-        blockId: 'img1', type: 'image', slotId: 'img-x',
-        label: 'Glycolysis biochemical pathway', description: 'Detailed pathway diagram',
-        important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'wide',
-        sourceReferences: [],
+        blockId: 'tall-inline-table', type: 'table', label: 'Tall table',
+        headers: ['Name', 'Value'], rows, sourceReferences: [],
       },
-    ]);
-    const fragments = paginateContent(slide);
-    expect(fragments.length).toBe(1);
-    expect(fragments[0].type).toBe('image');
-  });
-
-  it('produces a dedicated-table fragment for a large table', () => {
-    const slide = makeSlide([
-      {
-        blockId: 'tbl1', type: 'table', label: 'Big table',
-        headers: ['A', 'B', 'C', 'D', 'E'],
-        rows: [['1', '2', '3', '4', '5']],
-        sourceReferences: [],
-      },
-    ]);
-    const fragments = paginateContent(slide);
-    expect(fragments.length).toBe(1);
-    expect(fragments[0].type).toBe('dedicated-table');
-  });
-
-  it('produces a dedicated-diagram fragment for a large diagram', () => {
-    const slide = makeSlide([
-      {
-        blockId: 'dia1', type: 'diagram',
-        label: 'Signal cascade',
-        diagramRows: [['A', 'B', 'C'], ['D', 'E']],
-        sourceReferences: [],
-      },
-    ]);
-    const fragments = paginateContent(slide);
-    expect(fragments.length).toBe(1);
-    expect(fragments[0].type).toBe('dedicated-diagram');
-  });
-
-  it('splits image block from surrounding text into separate fragments', () => {
-    const slide = makeSlide([
-      { blockId: 'b1', type: 'paragraph', text: 'Before image.', sourceReferences: [] },
-      {
-        blockId: 'img2', type: 'image', slotId: 'img-y',
-        label: 'Nephron cross-section', description: 'Kidney anatomy',
-        important: true, sourceReference: 'p2', fit: 'contain', preferredAspect: 'square',
-        sourceReferences: [],
-      },
-      { blockId: 'b2', type: 'paragraph', text: 'After image.', sourceReferences: [] },
-    ]);
-    const fragments = paginateContent(slide);
-    expect(fragments.length).toBe(3);
-    expect(fragments[0].type).toBe('content');
-    expect(fragments[1].type).toBe('image');
-    expect(fragments[2].type).toBe('content');
-  });
-
-  it('preserves source block order', () => {
-    const blocks: LectureBlock[] = [
-      { blockId: 'b1', type: 'subtitle', text: 'First', sourceReferences: [] },
-      { blockId: 'b2', type: 'subtitle', text: 'Second', sourceReferences: [] },
-      { blockId: 'b3', type: 'subtitle', text: 'Third', sourceReferences: [] },
-    ];
-    const slide = makeSlide(blocks);
-    const fragments = paginateContent(slide);
-    // All content in one page — check order
-    const contentFragments = fragments.filter((f) => f.type === 'content');
-    const allBlocks = contentFragments.flatMap((f) => (f.type === 'content' ? f.blocks : []));
-    expect(allBlocks.map((b) => b.blockId)).toEqual(['b1', 'b2', 'b3']);
+    ]));
+    const tables = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
+      .filter((block) => block.type === 'table');
+    expect(tables.length).toBeGreaterThan(1);
+    expect(tables.flatMap((block) => block.rows)).toEqual(rows);
+    expect(tables.slice(1).every((block) =>
+      (typeof block.label === 'string' ? block.label : block.label.map((run) => run.text).join('')).includes('continued'),
+    )).toBe(true);
   });
 });

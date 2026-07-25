@@ -1,0 +1,64 @@
+# Production verification workflow for the standalone PPTX engine.
+name: PPTX engine CI
+
+on:
+  push:
+    branches: [main, finish-pptx-engine]
+    paths:
+      - 'artifacts/jang-pptx/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/pptx-engine-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'artifacts/jang-pptx/**'
+      - 'pnpm-lock.yaml'
+      - 'package.json'
+      - '.github/workflows/pptx-engine-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck library and demo
+        run: pnpm --filter @jang/pptx-engine typecheck
+
+      - name: Run unit and OOXML tests
+        run: pnpm --filter @jang/pptx-engine test
+
+      - name: Build library and React demo
+        run: pnpm --filter @jang/pptx-engine build
+
+      - name: Generate and inspect sample PPTX
+        run: |
+          pnpm --filter @jang/pptx-engine sample
+          pnpm --filter @jang/pptx-engine inspect:sample
+
+      - name: Verify packed clean-consumer import
+        run: pnpm --filter @jang/pptx-engine pack:check
+
+      - name: Upload sample presentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: jang-pptx-engine-sample
+          path: artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx
+          if-no-files-found: error
