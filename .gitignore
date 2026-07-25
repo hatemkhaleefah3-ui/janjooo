@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# generated PPTX/build verification artifacts
+artifacts/jang-pptx/generated/
+artifacts/jang-pptx/demo-dist/
