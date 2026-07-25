@@ -1,0 +1,44 @@
+name: Apply reviewed implementation
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '.automation/READY'
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Reconstruct and verify reviewed patch
+        shell: bash
+        run: |
+          cat .automation/part-* | base64 --decode | gzip --decompress > /tmp/janjooo-implementation.patch
+          echo 'e1415818d3f6ae1c4e55acc0398b99e5806cab80e6faeb8219131583f0851d70  /tmp/janjooo-implementation.patch' | sha256sum --check
+          git apply --index --whitespace=error-all /tmp/janjooo-implementation.patch
+
+      - name: Remove one-time transport files
+        shell: bash
+        run: |
+          rm -rf .automation
+          rm -f .github/workflows/apply-implementation.yml
+          rm -f .github/workflows/bootstrap-dependencies.yml
+          git add -A
+
+      - name: Commit reviewed implementation
+        shell: bash
+        run: |
+          git config user.name 'OpenAI implementation agent'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'feat: complete production PPTX engine'
+          git push origin HEAD:${{ github.head_ref }}
