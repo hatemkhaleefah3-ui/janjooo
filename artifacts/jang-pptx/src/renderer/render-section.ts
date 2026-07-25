@@ -1,7 +1,8 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
 import { SECTION_LAYOUT } from '../template/slide-layouts';
-import { CONTENT_X, CONTENT_WIDTH, SLIDE_NUMBER_X, SLIDE_NUMBER_Y } from '../template/geometry';
+import { CONTENT_X } from '../template/geometry';
+import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
 import type { LectureSection } from '../schema/lecture-types';
 
 export function renderSection(
@@ -10,61 +11,34 @@ export function renderSection(
   sectionIndex: number,
 ): void {
   const slide = pptx.addSlide();
-  slide.background = { color: THEME.SLIDE_BG };
+  slide.background = { color: THEME.NAVY };
 
-  // Navy background band (top ~65% of slide)
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: SECTION_LAYOUT.BAND_X,
-    y: SECTION_LAYOUT.BAND_Y,
-    w: SECTION_LAYOUT.BAND_W,
-    h: SECTION_LAYOUT.BAND_H,
-    fill: { color: THEME.NAVY },
-    line: { color: THEME.NAVY, width: 0 },
+    x: SECTION_LAYOUT.BAND_X, y: SECTION_LAYOUT.BAND_Y,
+    w: SECTION_LAYOUT.BAND_W, h: SECTION_LAYOUT.BAND_H,
+    fill: { color: THEME.GRAPHITE }, line: { color: THEME.GRAPHITE, width: 0 },
   });
-
-  // Gold stripe at the bottom of the band
-  slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: 0,
-    y: SECTION_LAYOUT.GOLD_STRIPE_Y,
-    w: THEME.SLIDE_WIDTH,
-    h: SECTION_LAYOUT.GOLD_STRIPE_H,
-    fill: { color: THEME.GOLD },
-    line: { color: THEME.GOLD, width: 0 },
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: SECTION_LAYOUT.BAND_X, y: 0, w: 0, h: THEME.SLIDE_HEIGHT,
+    line: { color: THEME.DARK_RULE, width: 1 },
   });
+  addOrbitArtwork(slide, 9.15, 2.2, 3.4, 3.4);
+  addEditorialHeader(slide, `Section ${String(sectionIndex + 1).padStart(2, '0')}`, section.sectionTitle, true);
 
-  // Section number label
-  slide.addText(`Section ${sectionIndex + 1}`, {
-    x: CONTENT_X,
-    y: SECTION_LAYOUT.NUMBER_Y,
-    w: CONTENT_WIDTH,
-    h: SECTION_LAYOUT.NUMBER_H,
-    fontFace: THEME.FONT,
-    fontSize: 13,
-    color: THEME.GOLD,
-    align: 'left',
-    valign: 'bottom',
-    charSpacing: 2,
+  slide.addText(String(sectionIndex + 1).padStart(2, '0'), {
+    x: 10.05, y: SECTION_LAYOUT.NUMBER_Y, w: 1.45, h: SECTION_LAYOUT.NUMBER_H,
+    fontFace: THEME.headingFont, fontSize: 40, bold: true,
+    color: THEME.DEEP_GRAY, margin: 0, align: 'right', valign: 'top',
   });
-
-  // Section title
   slide.addText(section.sectionTitle, {
-    x: CONTENT_X,
-    y: SECTION_LAYOUT.TITLE_Y,
-    w: CONTENT_WIDTH,
-    h: SECTION_LAYOUT.TITLE_H,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SECTION_TITLE_SLIDE,
-    bold: true,
-    color: THEME.WHITE,
-    align: 'left',
-    valign: 'top',
-    wrap: true,
+    x: CONTENT_X, y: SECTION_LAYOUT.TITLE_Y, w: 6.4, h: SECTION_LAYOUT.TITLE_H,
+    fontFace: THEME.headingFont, fontSize: THEME.FONT_SECTION_TITLE_SLIDE,
+    bold: true, color: THEME.WHITE, margin: 0,
+    align: 'left', valign: 'top', wrap: true, fit: 'shrink',
   });
-
-  slide.slideNumber = {
-    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SLIDE_NUMBER,
-    color: THEME.MUTED_TEXT,
-  };
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: CONTENT_X, y: 3.22, w: 1.12, h: 0,
+    line: { color: THEME.WHITE, width: 2 },
+  });
+  addEditorialFooter(slide, section.sectionTitle, true);
 }
