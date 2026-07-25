@@ -36,6 +36,13 @@ const lecture = {
           sourceReferences: ['sample-1'],
         },
         {
+          blockId: 'sample-numbered',
+          type: 'numbered',
+          items: ['Validate metadata', 'Render native objects', 'Inspect OOXML'],
+          startAt: 1,
+          sourceReferences: ['sample-1'],
+        },
+        {
           blockId: 'sample-table',
           type: 'table',
           label: 'Renderer capabilities',
@@ -48,18 +55,6 @@ const lecture = {
           sourceReferences: ['sample-1'],
         },
       ],
-    }, {
-      slideId: 'sample-numbering',
-      slideTitle: 'Deterministic workflow',
-      slideSubtitle: 'Native editable numbering is preserved in OOXML.',
-      sourceReferences: ['sample-1'],
-      blocks: [{
-        blockId: 'sample-numbered',
-        type: 'numbered',
-        items: ['Validate metadata', 'Render native objects', 'Inspect OOXML'],
-        startAt: 1,
-        sourceReferences: ['sample-1'],
-      }],
     }, {
       slideId: 'sample-diagram',
       slideTitle: 'Editable pathway',
@@ -102,7 +97,6 @@ const images = {
     dataUrl: `data:image/svg+xml;base64,${Buffer.from(sampleSvg).toString('base64')}`,
   },
 };
-
 const result = await generateLecturePptx(lecture, images, { strictGeometry: true });
 const outputDir = resolve('generated');
 await mkdir(outputDir, { recursive: true });

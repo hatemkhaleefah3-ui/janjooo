@@ -16,7 +16,7 @@ export default defineConfig({
   },
   root,
   build: {
-    outDir: path.resolve(root, 'dist/demo'),
+    outDir: path.resolve(root, 'demo-dist'),
     emptyOutDir: true,
   },
   server: { port, strictPort: true, host: '0.0.0.0' },

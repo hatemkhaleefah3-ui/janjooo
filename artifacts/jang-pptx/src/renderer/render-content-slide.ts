@@ -73,21 +73,21 @@ export function renderContentSlide(pptx: PptxGenJS, blocks: LectureBlock[], info
         slide.addText(richTextRuns(block.text), {
           x: CONTENT_X, y: currentY, w: CONTENT_WIDTH, h: height,
           fontFace: THEME.bodyFont, fontSize: THEME.FONT_PARAGRAPH,
-          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfterPt: 4, fit: 'shrink',
+          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 4, fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'bullets':
         slide.addText(listTextRuns(block.items, 'bullet'), {
           x: CONTENT_X + 0.1, y: currentY, w: CONTENT_WIDTH - 0.1, h: height,
           fontFace: THEME.bodyFont, fontSize: THEME.FONT_BULLET,
-          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfterPt: 3, fit: 'shrink',
+          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 3, fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'numbered':
         slide.addText(listTextRuns(block.items, 'number', block.startAt ?? 1), {
           x: CONTENT_X + 0.1, y: currentY, w: CONTENT_WIDTH - 0.1, h: height,
           fontFace: THEME.bodyFont, fontSize: THEME.FONT_NUMBERED,
-          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfterPt: 3, fit: 'shrink',
+          color: THEME.BODY_TEXT, align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 3, fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'callout': {

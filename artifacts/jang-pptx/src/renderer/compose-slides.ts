@@ -33,6 +33,7 @@ function renderEnding(pptx: PptxGenJS, lecture: LectureDocument): void {
     wrap: true,
   });
 
+  // Gold underline accent
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
     x: CONTENT_X + CONTENT_WIDTH * 0.28,
     y: ENDING_LAYOUT.UNDERLINE_Y,
@@ -60,13 +61,20 @@ export function composeSlides(
   importedImages: Record<string, ImportedImage>,
   warnings: string[],
 ): void {
+  // 1. Cover slide
   renderCover(pptx, lecture);
+
+  // 2. Overview slide
   renderOverview(pptx, lecture);
 
+  // 3. Sections
   for (let si = 0; si < lecture.sections.length; si++) {
     const section = lecture.sections[si];
+
+    // Section title slide
     renderSection(pptx, section, si);
 
+    // Content slides for each slide in the section
     for (const lectureSlide of section.slides) {
       const fragments = paginateContent(lectureSlide);
       let contentPageIndex = 0;
@@ -100,5 +108,6 @@ export function composeSlides(
     }
   }
 
+  // 4. Ending slide
   renderEnding(pptx, lecture);
 }

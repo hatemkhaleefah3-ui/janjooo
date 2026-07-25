@@ -113,13 +113,52 @@ export const DEFAULT_THEME = {
 };
 
 export type JangTheme = typeof DEFAULT_THEME;
-export type ThemeOverrides = Partial<JangTheme>;
+
+/**
+ * Geometry is deliberately fixed because geometry modules precompute the
+ * preserved Jang slide zones at module load. Per-generation overrides are
+ * limited to visual and typographic roles so a theme cannot silently change
+ * the slide structure.
+ */
+type FixedGeometryKey =
+  | 'SLIDE_WIDTH' | 'SLIDE_HEIGHT' | 'MARGIN'
+  | 'SECTION_HEADER_HEIGHT' | 'SECTION_HEADER_GAP' | 'BLOCK_GAP'
+  | 'TITLE_HEIGHT' | 'DIVIDER_HEIGHT' | 'DIVIDER_GAP'
+  | 'SUBTITLE_HEIGHT' | 'SUBTITLE_GAP'
+  | 'H_SUBTITLE_BLOCK' | 'H_PARAGRAPH_LINE' | 'H_BULLET_ITEM'
+  | 'H_NUMBERED_ITEM' | 'H_CALLOUT_MIN' | 'H_TABLE_HEADER_ROW'
+  | 'H_TABLE_BODY_ROW' | 'H_TABLE_LABEL' | 'H_DIAGRAM_NODE'
+  | 'H_DIAGRAM_ROW_GAP' | 'H_DIAGRAM_LABEL' | 'H_CAPTION'
+  | 'DIAGRAM_NODE_WIDTH' | 'DIAGRAM_NODE_HEIGHT'
+  | 'DIAGRAM_NODE_H_GAP' | 'DIAGRAM_ROW_V_GAP'
+  | 'DIAGRAM_MAX_NODES_PER_ROW' | 'TABLE_LARGE_THRESHOLD'
+  | 'DIAGRAM_LARGE_THRESHOLD' | 'LINE_SPACING';
+
+export type ThemeOverrides = Partial<Omit<JangTheme, FixedGeometryKey>>;
 
 /** Mutable current theme; renderers read it when each shape is created. */
 export const THEME: JangTheme = { ...DEFAULT_THEME };
 
 export function configureTheme(overrides: ThemeOverrides = {}): JangTheme {
-  Object.assign(THEME, overrides);
+  const normalized: ThemeOverrides = { ...overrides };
+
+  // Keep the original single-font and single-colour aliases aligned with the
+  // newer semantic roles. Explicit values always win when both are provided.
+  if (overrides.bodyFont !== undefined && overrides.FONT === undefined) normalized.FONT = overrides.bodyFont;
+  if (overrides.FONT !== undefined && overrides.bodyFont === undefined) normalized.bodyFont = overrides.FONT;
+  if (overrides.bodyFont !== undefined && overrides.labelFont === undefined) normalized.labelFont = overrides.bodyFont;
+  if (overrides.headingFont !== undefined && overrides.accentFont === undefined) normalized.accentFont = overrides.headingFont;
+
+  if (overrides.NAVY !== undefined && overrides.titleColor === undefined) normalized.titleColor = overrides.NAVY;
+  if (overrides.titleColor !== undefined && overrides.NAVY === undefined) normalized.NAVY = overrides.titleColor;
+  if (overrides.GOLD !== undefined && overrides.accentColor === undefined) normalized.accentColor = overrides.GOLD;
+  if (overrides.accentColor !== undefined && overrides.GOLD === undefined) normalized.GOLD = overrides.accentColor;
+  if (overrides.BODY_TEXT !== undefined && overrides.bodyColor === undefined) normalized.bodyColor = overrides.BODY_TEXT;
+  if (overrides.bodyColor !== undefined && overrides.BODY_TEXT === undefined) normalized.BODY_TEXT = overrides.bodyColor;
+  if (overrides.MUTED_TEXT !== undefined && overrides.mutedColor === undefined) normalized.mutedColor = overrides.MUTED_TEXT;
+  if (overrides.mutedColor !== undefined && overrides.MUTED_TEXT === undefined) normalized.MUTED_TEXT = overrides.mutedColor;
+
+  Object.assign(THEME, normalized);
   return { ...THEME };
 }
 

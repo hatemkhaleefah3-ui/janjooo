@@ -50,15 +50,22 @@ export function listTextRuns(items: Array<string | ListItem>, type: 'bullet' | '
         breakLine: itemIndex < items.length - 1 && runIndex === safeRuns.length - 1,
         indentLevel: runIndex === 0 ? level : undefined,
       };
-      if (runIndex === 0 && !continued) {
-        options.bullet = type === 'bullet'
-          ? true
-          : (({
-              type: 'number',
-              indent: 18 + level * 16,
-              hanging: 4,
-              numberStartAt: startAt + numberOffset,
-            } as unknown) as PptxGenJS.TextPropsOptions['bullet']);
+      if (runIndex === 0) {
+        const indent = 18 + level * 16;
+        if (continued) {
+          // A zero-width bullet preserves paragraph indentation without
+          // displaying another bullet or incrementing a numbered sequence.
+          options.bullet = { characterCode: '200B', indent };
+        } else if (type === 'bullet') {
+          options.bullet = { characterCode: '2022', indent };
+        } else {
+          options.bullet = {
+            type: 'number',
+            numberType: 'arabicPeriod',
+            numberStartAt: startAt + numberOffset,
+            indent,
+          };
+        }
       }
       result.push({ text: run.text, options });
     });

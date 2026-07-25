@@ -101,7 +101,7 @@ pnpm --filter @jang/pptx-engine sample
 
 Generated output appears in `artifacts/jang-pptx/generated/`.
 
-The React demo is retained and built separately into `dist/demo`. The reusable library is emitted to `dist/` with JavaScript, source maps, and TypeScript declarations.
+The React demo is retained and built separately into `demo-dist/` so it is not shipped in the library tarball. The reusable library is emitted to `dist/` with JavaScript, source maps, and TypeScript declarations.
 
 ## Package verification
 

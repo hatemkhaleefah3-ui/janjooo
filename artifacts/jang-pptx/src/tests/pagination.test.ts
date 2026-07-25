@@ -53,7 +53,7 @@ describe('paginateContent — zero content loss', () => {
     const text = Array.from({ length: 80 }, (_, index) => `Sentence ${index} explains a deterministic lecture concept. `).join('');
     const fragments = paginateContent(makeSlide([
       { blockId: 'long-paragraph', type: 'paragraph', text, sourceReferences: [] },
-    ], 'Long lecture title', 'Long lecture subtitle'));
+    ]));
     const output = fragments.flatMap((fragment) => fragment.type === 'content' ? fragment.blocks : [])
       .filter((block) => block.type === 'paragraph')
       .map((block) => typeof block.text === 'string' ? block.text : block.text.map((run) => run.text).join(''))

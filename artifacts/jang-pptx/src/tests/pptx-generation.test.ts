@@ -50,4 +50,34 @@ describe('native PPTX generation and OOXML inspection', () => {
     const invalid = { ...lecture(), documentTitle: '' };
     await expect(generateLecturePptx(invalid)).rejects.toBeInstanceOf(LectureValidationError);
   });
+
+  it('uses the exact preserved slide size and isolates concurrent theme overrides', async () => {
+    const [first, second] = await Promise.all([
+      generateLecturePptx(lecture(), {}, { theme: { bodyFont: 'Courier New', headingFont: 'Courier New', NAVY: '123456' } }),
+      generateLecturePptx(lecture(), {}, { theme: { bodyFont: 'Times New Roman', headingFont: 'Times New Roman', NAVY: '654321' } }),
+    ]);
+
+    const inspect = async (blob: Blob) => {
+      const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+      const presentation = await zip.file('ppt/presentation.xml')!.async('string');
+      const theme = await zip.file('ppt/theme/theme1.xml')!.async('string');
+      const slides = Object.keys(zip.files).filter((name) => /^ppt\/slides\/slide\d+\.xml$/.test(name));
+      const xml = (await Promise.all(slides.map((name) => zip.file(name)!.async('string')))).join('\n');
+      return { presentation, theme, xml };
+    };
+
+    const firstXml = await inspect(first.blob);
+    const secondXml = await inspect(second.blob);
+    expect(firstXml.presentation).toMatch(/<p:sldSz[^>]*cx="12188952"[^>]*cy="6858000"/);
+    expect(secondXml.presentation).toMatch(/<p:sldSz[^>]*cx="12188952"[^>]*cy="6858000"/);
+    expect(firstXml.theme).toMatch(/<a:majorFont><a:latin typeface="Courier New"/);
+    expect(firstXml.theme).toMatch(/<a:minorFont><a:latin typeface="Courier New"/);
+    expect(secondXml.theme).toMatch(/<a:majorFont><a:latin typeface="Times New Roman"/);
+    expect(secondXml.theme).toMatch(/<a:minorFont><a:latin typeface="Times New Roman"/);
+    expect(firstXml.xml).toContain('123456');
+    expect(firstXml.xml).not.toContain('654321');
+    expect(secondXml.xml).toContain('654321');
+    expect(secondXml.xml).not.toContain('123456');
+  }, 30000);
+
 });

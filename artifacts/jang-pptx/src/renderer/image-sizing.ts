@@ -27,12 +27,11 @@ export function guessAspect(preferredAspect: string): number | undefined {
 }
 
 function decodeBase64(value: string): Uint8Array {
-  const compact = value.replace(/\s/g, '');
   if (typeof atob === 'function') {
-    const binary = atob(compact);
+    const binary = atob(value.replace(/\s/g, ''));
     return Uint8Array.from(binary, (char) => char.charCodeAt(0));
   }
-  return new Uint8Array(Buffer.from(compact, 'base64'));
+  return new Uint8Array(Buffer.from(value, 'base64'));
 }
 
 function decodeUtf8(bytes: Uint8Array): string {
@@ -44,15 +43,8 @@ function parseDataUrl(dataUrl: string): ParsedDataUrl | undefined {
   const match = /^data:([^;,]+)(;base64)?,(.*)$/is.exec(dataUrl.trim());
   if (!match || !match[1].toLowerCase().startsWith('image/')) return undefined;
   try {
-    const mimeType = match[1].toLowerCase();
-    const encoded = match[3];
-    if (match[2]) {
-      const compact = encoded.replace(/\s/g, '');
-      if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) return undefined;
-    }
-    const bytes = match[2] ? decodeBase64(encoded) : new TextEncoder().encode(decodeURIComponent(encoded));
-    if (!bytes.length) return undefined;
-    return { mimeType, bytes, ...(mimeType === 'image/svg+xml' ? { text: decodeUtf8(bytes) } : {}) };
+    const bytes = match[2] ? decodeBase64(match[3]) : new TextEncoder().encode(decodeURIComponent(match[3]));
+    return { mimeType: match[1].toLowerCase(), bytes, ...(match[1].toLowerCase() === 'image/svg+xml' ? { text: decodeUtf8(bytes) } : {}) };
   } catch {
     return undefined;
   }
@@ -137,6 +129,7 @@ export function extractIntrinsicImageSize(dataUrl: string): IntrinsicImageSize |
 export async function extractAspectFromDataUrl(dataUrl: string): Promise<number | undefined> {
   return extractIntrinsicImageSize(dataUrl)?.aspect;
 }
+
 
 /** Backward-compatible aliases retained for existing integrations. */
 export const isSupportedImageDataUrl = isUsableImageDataUrl;

@@ -31,10 +31,31 @@ export class LectureValidationError extends Error {
   }
 }
 
-export async function generateLecturePptx(
+let generationQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Theme tokens are held in a shared mutable object for compatibility with the
+ * existing renderer modules. Serialize generation so concurrent callers cannot
+ * leak one presentation's fonts or colours into another presentation.
+ */
+function enqueueGeneration<T>(operation: () => Promise<T>): Promise<T> {
+  const run = generationQueue.then(operation, operation);
+  generationQueue = run.then(() => undefined, () => undefined);
+  return run;
+}
+
+export function generateLecturePptx(
   lecture: LectureDocument,
   importedImages: Record<string, ImportedImage> = {},
   options: GenerationOptions = {},
+): Promise<GenerationResult> {
+  return enqueueGeneration(() => generateLecturePptxInternal(lecture, importedImages, options));
+}
+
+async function generateLecturePptxInternal(
+  lecture: LectureDocument,
+  importedImages: Record<string, ImportedImage>,
+  options: GenerationOptions,
 ): Promise<GenerationResult> {
   const warnings: string[] = [];
   if (options.validateInput !== false) {
@@ -47,21 +68,26 @@ export async function generateLecturePptx(
   configureTheme(options.theme);
   try {
     const pptx = new PptxGenJS();
-    pptx.layout = 'LAYOUT_WIDE';
+    const layoutName = 'JANG_WIDE';
+    pptx.defineLayout({ name: layoutName, width: THEME.SLIDE_WIDTH, height: THEME.SLIDE_HEIGHT });
+    pptx.layout = layoutName;
     pptx.author = 'Jang PPTX Engine';
-    (pptx as unknown as { company: string }).company = 'Jang';
+    pptx.company = 'Jang';
     pptx.subject = lecture.documentTitle;
     pptx.title = lecture.documentTitle;
     (pptx as unknown as { lang: string }).lang = lecture.direction === 'rtl' ? 'ar-SA' : 'en-US';
-    (pptx as unknown as { rtlMode: boolean }).rtlMode = lecture.direction === 'rtl';
-    (pptx as unknown as { theme: Record<string, string> }).theme = {
+    pptx.rtlMode = lecture.direction === 'rtl';
+    pptx.theme = {
       headFontFace: THEME.headingFont,
       bodyFontFace: THEME.bodyFont,
       lang: lecture.direction === 'rtl' ? 'ar-SA' : 'en-US',
-    };
+    } as PptxGenJS.ThemeProps;
 
     composeSlides(pptx, lecture, importedImages, warnings);
     const geometry = validatePresentationGeometry(pptx);
+    if (geometry.checkedObjects === 0) {
+      warnings.push('Geometry validation could not inspect any generated slide objects.');
+    }
     if (!geometry.valid) {
       const messages = geometry.violations.map((violation) => `Geometry: ${violation}`);
       if (options.strictGeometry) throw new Error(messages.join('\n'));
@@ -69,9 +95,9 @@ export async function generateLecturePptx(
     }
 
     const writeOptions = { compression: options.compression !== false };
-    const isBrowserRuntime = typeof globalThis === 'object' && 'window' in globalThis;
     let blob: Blob;
-    if (isBrowserRuntime) {
+    const isBrowser = typeof globalThis === 'object' && 'document' in globalThis;
+    if (isBrowser) {
       blob = await pptx.write({ outputType: 'blob', ...writeOptions } as never) as Blob;
     } else {
       const buffer = await pptx.write({ outputType: 'nodebuffer', ...writeOptions } as never);

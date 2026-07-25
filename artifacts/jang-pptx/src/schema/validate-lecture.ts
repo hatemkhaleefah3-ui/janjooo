@@ -246,4 +246,3 @@ export function validateLecture(data: unknown): ValidationResult {
   const uniqueWarnings = [...new Set(warnings)];
   return { valid: uniqueErrors.length === 0, errors: uniqueErrors, warnings: uniqueWarnings };
 }
-

@@ -4,7 +4,7 @@ import {
   CONTENT_X, CONTENT_WIDTH, SECTION_HEADER_Y,
   SLIDE_NUMBER_X, SLIDE_NUMBER_Y, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
 } from '../template/geometry';
-import { extractImageDimensionsFromDataUrl, fitImageContain, guessAspect, isSupportedImageDataUrl } from './image-sizing';
+import { extractIntrinsicImageSize, fitImageContain, fitImageCover, isUsableImageDataUrl } from './image-sizing';
 import type { ImageBlock, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
@@ -45,21 +45,24 @@ export function renderImageSlide(
 
   if (!imported?.dataUrl) {
     warnings.push(`Image slot "${block.slotId}" (${richTextToPlain(block.label)}) has no imported image — placeholder shown.`);
-  } else if (!isSupportedImageDataUrl(imported.dataUrl)) {
+  } else if (!isUsableImageDataUrl(imported.dataUrl)) {
     warnings.push(`Image slot "${block.slotId}" is not a supported PNG, JPEG, GIF, WebP, or SVG data URL — placeholder shown.`);
   } else {
-    const intrinsic = extractImageDimensionsFromDataUrl(imported.dataUrl);
+    const intrinsic = extractIntrinsicImageSize(imported.dataUrl);
     if (!intrinsic) {
       warnings.push(`Image slot "${block.slotId}" could not be decoded safely — placeholder shown.`);
     } else {
-      const aspect = block.preferredAspect === 'automatic' ? intrinsic.aspect : guessAspect(block.preferredAspect) ?? intrinsic.aspect;
+      // The decoded file dimensions are authoritative. preferredAspect is a
+      // layout hint for extraction/UI workflows and must never stretch pixels.
+      const aspect = intrinsic.aspect;
       try {
         if (block.fit === 'cover') {
+          const frame = fitImageCover(area.x, area.y, area.w, area.h);
           slide.addImage({
             data: imported.dataUrl,
-            x: area.x, y: area.y, w: area.w, h: area.h,
-            sizing: { type: 'cover', w: area.w, h: area.h },
-          } as never);
+            ...frame,
+            sizing: { type: 'cover', w: frame.w, h: frame.h },
+          });
         } else {
           const dimensions = fitImageContain(area.x, area.y, area.w, area.h, aspect);
           slide.addImage({ data: imported.dataUrl, ...dimensions });
