@@ -4,158 +4,132 @@ import {
   CONTENT_X, CONTENT_WIDTH, SECTION_HEADER_Y,
   SLIDE_NUMBER_X, SLIDE_NUMBER_Y, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
 } from '../template/geometry';
-import type { DiagramBlock } from '../schema/lecture-types';
+import type { DiagramBlock, RichText, RichTextRun } from '../schema/lecture-types';
+import { richTextRuns } from './rich-text';
+
+type DiagramNode = string | RichTextRun[];
 
 function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: 0, y: SECTION_HEADER_Y,
-    w: THEME.SLIDE_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fill: { color: THEME.SECTION_HEADER_BG },
-    line: { color: THEME.SECTION_HEADER_BG, width: 0 },
+    x: 0, y: SECTION_HEADER_Y, w: THEME.SLIDE_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
+    fill: { color: THEME.SECTION_HEADER_BG }, line: { color: THEME.SECTION_HEADER_BG, width: 0 },
   });
   slide.addText(sectionTitle, {
-    x: CONTENT_X, y: SECTION_HEADER_Y,
-    w: CONTENT_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SECTION_HEADER,
-    color: THEME.SECTION_HEADER_TEXT,
-    align: 'left',
-    valign: 'middle',
+    x: CONTENT_X, y: SECTION_HEADER_Y, w: CONTENT_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
+    fontFace: THEME.FONT, fontSize: THEME.FONT_SECTION_HEADER, color: THEME.SECTION_HEADER_TEXT,
+    align: 'left', valign: 'middle',
   });
 }
 
-/**
- * Renders diagram nodes and connectors at the given area.
- * Returns the approximate height used.
- */
+/** Splits over-wide semantic rows while preserving every node in order. */
+export function normalizeDiagramRows(rows: DiagramNode[][], maxNodesPerRow = THEME.DIAGRAM_MAX_NODES_PER_ROW): DiagramNode[][] {
+  const max = Math.max(1, Math.floor(maxNodesPerRow));
+  const normalized: DiagramNode[][] = [];
+  for (const row of rows) {
+    for (let offset = 0; offset < row.length; offset += max) normalized.push(row.slice(offset, offset + max));
+  }
+  return normalized;
+}
+
+export function diagramRowsPerSlide(availableHeight: number): number {
+  const fixed = THEME.H_DIAGRAM_LABEL + 0.06;
+  const perRow = THEME.DIAGRAM_NODE_HEIGHT + THEME.DIAGRAM_ROW_V_GAP;
+  return Math.max(1, Math.floor((availableHeight - fixed + THEME.DIAGRAM_ROW_V_GAP) / perRow));
+}
+
+export function paginateDiagramRows(rows: DiagramNode[][], rowsPerSlide: number): DiagramNode[][][] {
+  const normalized = normalizeDiagramRows(rows);
+  const pageSize = Math.max(1, Math.floor(rowsPerSlide));
+  if (!normalized.length) return [[]];
+  const pages: DiagramNode[][][] = [];
+  for (let offset = 0; offset < normalized.length; offset += pageSize) pages.push(normalized.slice(offset, offset + pageSize));
+  return pages;
+}
+
+function addArrowLine(slide: PptxGenJS.Slide, x: number, y: number, w: number, h: number): void {
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x, y, w, h,
+    line: { color: THEME.DIAGRAM_CONNECTOR, width: 1.25, endArrowType: 'triangle' },
+  });
+}
+
+/** Renders diagram rows as native editable nodes connected by real line shapes. */
 export function addDiagramToSlide(
   slide: PptxGenJS.Slide,
   block: DiagramBlock,
-  areaX: number, areaY: number,
-  areaW: number,
-  _areaH: number,
+  areaX: number, areaY: number, areaW: number, _areaH: number,
 ): number {
   let currentY = areaY;
-
-  // Label
-  slide.addText(block.label, {
+  slide.addText(richTextRuns(block.label), {
     x: areaX, y: currentY, w: areaW, h: THEME.H_DIAGRAM_LABEL,
     fontFace: THEME.FONT, fontSize: 11, bold: true,
     color: THEME.NAVY, align: 'left', valign: 'top',
   });
   currentY += THEME.H_DIAGRAM_LABEL + 0.06;
 
+  const rows = normalizeDiagramRows(block.diagramRows);
   const nH = THEME.DIAGRAM_NODE_HEIGHT;
-  const nW = THEME.DIAGRAM_NODE_WIDTH;
   const hGap = THEME.DIAGRAM_NODE_H_GAP;
   const vGap = THEME.DIAGRAM_ROW_V_GAP;
 
-  for (let ri = 0; ri < block.diagramRows.length; ri++) {
-    const row = block.diagramRows[ri];
-    if (row.length === 0) continue;
+  rows.forEach((row, rowIndex) => {
+    if (!row.length) return;
+    const nodeWidth = Math.min(
+      THEME.DIAGRAM_NODE_WIDTH,
+      Math.max(0.75, (areaW - (row.length - 1) * hGap) / row.length),
+    );
+    const totalWidth = row.length * nodeWidth + (row.length - 1) * hGap;
+    const rowStartX = areaX + Math.max(0, (areaW - totalWidth) / 2);
 
-    // Scale node width down if many nodes per row
-    const maxNodesPerRow = Math.max(...block.diagramRows.map((r) => r.length));
-    const scaledNW = maxNodesPerRow > 4
-      ? Math.min(nW, (areaW - (maxNodesPerRow - 1) * hGap) / maxNodesPerRow)
-      : nW;
-
-    const totalRowW = row.length * scaledNW + (row.length - 1) * hGap;
-    const rowStartX = areaX + Math.max(0, (areaW - totalRowW) / 2);
-    const rowY = currentY;
-
-    for (let ni = 0; ni < row.length; ni++) {
-      const nodeX = rowStartX + ni * (scaledNW + hGap);
-      const nodeLabel = row[ni];
-
-      // Node rectangle
-      slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-        x: nodeX, y: rowY, w: scaledNW, h: nH,
+    row.forEach((node, nodeIndex) => {
+      const nodeX = rowStartX + nodeIndex * (nodeWidth + hGap);
+      slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, {
+        x: nodeX, y: currentY, w: nodeWidth, h: nH,
+        rectRadius: 0.05,
         fill: { color: THEME.DIAGRAM_NODE_BG },
         line: { color: THEME.DIAGRAM_NODE_BORDER, width: 1 },
+      } as never);
+      slide.addText(richTextRuns(node), {
+        x: nodeX + 0.06, y: currentY + 0.03, w: nodeWidth - 0.12, h: nH - 0.06,
+        fontFace: THEME.FONT, fontSize: THEME.FONT_DIAGRAM_NODE, bold: true,
+        color: THEME.DIAGRAM_NODE_TEXT, align: 'center', valign: 'middle', wrap: true,
       });
-
-      // Node text
-      slide.addText(nodeLabel, {
-        x: nodeX + 0.06, y: rowY + 0.03,
-        w: scaledNW - 0.12, h: nH - 0.06,
-        fontFace: THEME.FONT,
-        fontSize: THEME.FONT_DIAGRAM_NODE,
-        bold: true,
-        color: THEME.DIAGRAM_NODE_TEXT,
-        align: 'center',
-        valign: 'middle',
-        wrap: true,
-      });
-
-      // Horizontal connector to next node
-      if (ni < row.length - 1) {
-        const connX = nodeX + scaledNW;
-        const connY = rowY + nH / 2;
-        // Connector line
-        slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-          x: connX, y: connY - 0.008,
-          w: hGap - 0.05, h: 0.016,
-          fill: { color: THEME.DIAGRAM_CONNECTOR },
-          line: { color: THEME.DIAGRAM_CONNECTOR, width: 0 },
-        });
-        // Arrowhead triangle (approximated as small rect)
-        slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-          x: connX + hGap - 0.08, y: connY - 0.055,
-          w: 0.055, h: 0.11,
-          fill: { color: THEME.DIAGRAM_CONNECTOR },
-          line: { color: THEME.DIAGRAM_CONNECTOR, width: 0 },
-        });
+      if (nodeIndex < row.length - 1) {
+        addArrowLine(slide, nodeX + nodeWidth + 0.02, currentY + nH / 2, hGap - 0.04, 0);
       }
-    }
+    });
 
     currentY += nH;
-
-    // Vertical connector to next row
-    if (ri < block.diagramRows.length - 1) {
-      const connX = areaX + areaW / 2 - 0.008;
-      slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-        x: connX, y: currentY, w: 0.016, h: vGap - 0.05,
-        fill: { color: THEME.DIAGRAM_CONNECTOR },
-        line: { color: THEME.DIAGRAM_CONNECTOR, width: 0 },
-      });
-      // Arrowhead
-      slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-        x: connX - 0.05, y: currentY + vGap - 0.1,
-        w: 0.116, h: 0.08,
-        fill: { color: THEME.DIAGRAM_CONNECTOR },
-        line: { color: THEME.DIAGRAM_CONNECTOR, width: 0 },
-      });
+    if (rowIndex < rows.length - 1) {
+      addArrowLine(slide, areaX + areaW / 2, currentY + 0.02, 0, vGap - 0.04);
       currentY += vGap;
     }
-  }
-
+  });
   return currentY - areaY;
 }
 
-/**
- * Renders a large diagram (> 4 total nodes) on a dedicated slide.
- */
-export function renderDedicatedDiagramSlide(
-  pptx: PptxGenJS,
-  block: DiagramBlock,
-  sectionTitle: string,
-): void {
-  const slide = pptx.addSlide();
-  slide.background = { color: THEME.SLIDE_BG };
-  addSectionHeader(slide, sectionTitle);
-
-  const areaX = CONTENT_X;
+export function renderDedicatedDiagramSlides(pptx: PptxGenJS, block: DiagramBlock, sectionTitle: string): void {
   const areaY = CONTENT_Y_AFTER_HEADER + 0.1;
-  const areaW = CONTENT_WIDTH;
   const areaH = SAFE_BOTTOM - areaY - 0.1;
+  const pages = paginateDiagramRows(block.diagramRows, diagramRowsPerSlide(areaH));
+  pages.forEach((rows, pageIndex) => {
+    const slide = pptx.addSlide();
+    slide.background = { color: THEME.SLIDE_BG };
+    addSectionHeader(slide, sectionTitle);
+    const label: RichText = pageIndex === 0
+      ? block.label
+      : typeof block.label === 'string'
+        ? `${block.label} (continued ${pageIndex + 1}/${pages.length})`
+        : [...block.label, { text: ` (continued ${pageIndex + 1}/${pages.length})`, emphasis: 'italic' }];
+    addDiagramToSlide(slide, { ...block, label, diagramRows: rows }, CONTENT_X, areaY, CONTENT_WIDTH, areaH);
+    slide.slideNumber = {
+      x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y, fontFace: THEME.FONT,
+      fontSize: THEME.FONT_SLIDE_NUMBER, color: THEME.SLIDE_NUMBER_COLOR,
+    };
+  });
+}
 
-  addDiagramToSlide(slide, block, areaX, areaY, areaW, areaH);
-
-  slide.slideNumber = {
-    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y,
-    fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SLIDE_NUMBER,
-    color: THEME.SLIDE_NUMBER_COLOR,
-  };
+/** Backward-compatible name retained for existing integrations. */
+export function renderDedicatedDiagramSlide(pptx: PptxGenJS, block: DiagramBlock, sectionTitle: string): void {
+  renderDedicatedDiagramSlides(pptx, block, sectionTitle);
 }
