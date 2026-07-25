@@ -1,0 +1,33 @@
+name: Audit source snapshot
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'artifacts/jang-pptx/**'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - '.github/workflows/audit-source-snapshot.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Create source archive
+        run: |
+          mkdir -p audit-source
+          cp package.json pnpm-lock.yaml audit-source/
+          cp -R artifacts/jang-pptx audit-source/
+          cp -R .github audit-source/
+      - name: Upload source archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: pptx-engine-audit-source
+          path: audit-source
+          if-no-files-found: error
+          retention-days: 1
