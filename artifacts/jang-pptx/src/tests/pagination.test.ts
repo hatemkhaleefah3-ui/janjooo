@@ -8,8 +8,9 @@ function makeSlide(blocks: LectureBlock[]): LectureSlide {
 }
 
 describe('deterministic pagination', () => {
-  it('routes image, wide table, and large diagram to dedicated renderers', () => {
-    expect(isDedicatedBlock({ blockId: 'i', type: 'image', slotId: 's', label: 'Specific image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'automatic', sourceReferences: [] })).toBe(true);
+  it('routes a wide table and large diagram to dedicated renderers; only full-slide images are always dedicated', () => {
+    expect(isDedicatedBlock({ blockId: 'i', type: 'image', slotId: 's', label: 'Specific image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'automatic', sourceReferences: [] })).toBe(false);
+    expect(isDedicatedBlock({ blockId: 'i2', type: 'image', slotId: 's2', label: 'Full-bleed image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'full', sourceReferences: [] })).toBe(true);
     expect(isDedicatedBlock({ blockId: 't', type: 'table', label: 'T', headers: ['1','2','3','4'], rows: [], sourceReferences: [] })).toBe(true);
     expect(isDedicatedBlock({ blockId: 'd', type: 'diagram', label: 'D', diagramRows: [['1','2','3'],['4','5']], sourceReferences: [] })).toBe(true);
   });
@@ -45,6 +46,45 @@ describe('deterministic pagination', () => {
       .filter((block): block is Extract<LectureBlock, { type: 'table' }> => block.type === 'table');
     expect(tables.length).toBeGreaterThan(1);
     expect(tables.flatMap((table) => table.rows)).toEqual(rows);
+  });
+});
+
+describe('image mixing (issue #22)', () => {
+  it('keeps a non-full image on the same content page as its related text', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'p', type: 'paragraph', text: 'Short related paragraph.', sourceReferences: [] },
+      { blockId: 'img', type: 'image', slotId: 'slot-a', label: 'Diagram', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments).toHaveLength(1);
+    expect(fragments[0].type).toBe('content');
+    expect(fragments[0].type === 'content' && fragments[0].blocks.map((b) => b.type)).toEqual(['paragraph', 'image']);
+  });
+
+  it('keeps a lone non-full image as a content fragment so its label can accompany the placeholder', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'img', type: 'image', slotId: 'slot-b', label: 'Standalone image', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments).toHaveLength(1);
+    expect(fragments[0].type).toBe('content');
+  });
+
+  it('still routes a full-slide image straight to a dedicated fragment even with companion text', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'p', type: 'paragraph', text: 'Intro paragraph.', sourceReferences: [] },
+      { blockId: 'img', type: 'image', slotId: 'slot-c', label: 'Full bleed', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'full', sourceReferences: [] },
+    ]));
+    expect(fragments.map((f) => f.type)).toEqual(['content', 'image']);
+  });
+
+  it('breaks the page rather than mixing two images into one two-column layout', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'img1', type: 'image', slotId: 'slot-d', label: 'First', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+      { blockId: 'p', type: 'paragraph', text: 'Middle paragraph.', sourceReferences: [] },
+      { blockId: 'img2', type: 'image', slotId: 'slot-e', label: 'Second', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments.length).toBeGreaterThanOrEqual(2);
+    const firstContent = fragments.find((f) => f.type === 'content');
+    expect(firstContent && firstContent.type === 'content' && firstContent.blocks.filter((b) => b.type === 'image')).toHaveLength(1);
   });
 });
 

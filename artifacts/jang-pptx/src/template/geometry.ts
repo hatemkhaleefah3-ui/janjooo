@@ -15,6 +15,17 @@ export const SLIDE_CENTER_Y = THEME.SLIDE_HEIGHT / 2;
 export const SLIDE_NUMBER_X = THEME.SLIDE_WIDTH - THEME.MARGIN - 0.55;
 export const SLIDE_NUMBER_Y = THEME.SLIDE_HEIGHT - 0.48;
 
+/**
+ * Mixed content/image layout geometry (issue #22, requirement 3).
+ * When a content slide carries one image block alongside related text, the
+ * text column narrows and the image occupies a fixed right-hand column
+ * instead of consuming a dedicated slide.
+ */
+export const IMAGE_COLUMN_GAP = 0.4;
+export const IMAGE_COLUMN_WIDTH = 3.95;
+export const TEXT_WIDTH_WITH_IMAGE = Math.max(3, CONTENT_WIDTH - IMAGE_COLUMN_WIDTH - IMAGE_COLUMN_GAP);
+export const IMAGE_COLUMN_X = CONTENT_X + TEXT_WIDTH_WITH_IMAGE + IMAGE_COLUMN_GAP;
+
 export function getContentYStart(hasTitle: boolean, hasSubtitle: boolean): number {
   let y = CONTENT_Y_AFTER_HEADER;
   if (hasTitle) y += TITLE_BLOCK_H;

@@ -11,6 +11,7 @@ import { renderImageSlide } from './render-image';
 import { renderDedicatedTableSlides } from './render-table';
 import { renderDedicatedDiagramSlides } from './render-diagram';
 import { paginateContent } from './paginate-content';
+import { compactSectionSlides } from './compact-slides';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
@@ -61,7 +62,8 @@ export function composeSlides(
     const section = lecture.sections[si];
     renderSection(pptx, section, si);
 
-    for (const lectureSlide of section.slides) {
+    const compactedSlides = compactSectionSlides(section.slides);
+    for (const lectureSlide of compactedSlides) {
       const fragments = paginateContent(lectureSlide);
       let contentPageIndex = 0;
 
@@ -74,7 +76,7 @@ export function composeSlides(
               slideSubtitle: isFirstPage ? lectureSlide.slideSubtitle : '',
               isFirstPage,
               sectionTitle: section.sectionTitle,
-            });
+            }, importedImages, warnings);
             contentPageIndex++;
             break;
           }
