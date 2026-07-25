@@ -43,7 +43,8 @@
     "test:watch": "vitest --config vitest.config.ts",
     "sample": "node scripts/generate-sample.mjs",
     "inspect:sample": "node scripts/inspect-pptx.mjs generated/jang-pptx-engine-sample.pptx",
-    "pack:check": "node scripts/pack-check.mjs"
+    "pack:check": "node scripts/pack-check.mjs",
+    "sample:design": "node scripts/generate-design-sample.mjs"
   },
   "dependencies": {
     "ajv": "8.20.0",
