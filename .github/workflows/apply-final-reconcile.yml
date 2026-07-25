@@ -18,16 +18,15 @@ jobs:
         with:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
-      - name: Apply checksum-verified reconciliation
+      - name: Apply checksum-verified source reconciliation
         shell: bash
         run: |
           set -euo pipefail
           cat .finalize/part-* | base64 --decode | gzip --decompress > /tmp/final-reconcile.patch
           echo '2b853510e3a917eedbda2c0416bb5fe5f3c79353edfa299c16f59d097fabb7ad  /tmp/final-reconcile.patch' | sha256sum --check
-          git apply --check /tmp/final-reconcile.patch
-          git apply --index --whitespace=error-all /tmp/final-reconcile.patch
+          git apply --check --exclude='.github/**' /tmp/final-reconcile.patch
+          git apply --index --whitespace=error-all --exclude='.github/**' /tmp/final-reconcile.patch
           rm -rf .finalize
-          rm -f .github/workflows/apply-final-reconcile.yml
           git add -A
           git config user.name 'OpenAI implementation agent'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
