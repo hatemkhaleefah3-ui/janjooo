@@ -49,6 +49,18 @@ const lecture = {
         },
       ],
     }, {
+      slideId: 'sample-numbering',
+      slideTitle: 'Deterministic workflow',
+      slideSubtitle: 'Native editable numbering is preserved in OOXML.',
+      sourceReferences: ['sample-1'],
+      blocks: [{
+        blockId: 'sample-numbered',
+        type: 'numbered',
+        items: ['Validate metadata', 'Render native objects', 'Inspect OOXML'],
+        startAt: 1,
+        sourceReferences: ['sample-1'],
+      }],
+    }, {
       slideId: 'sample-diagram',
       slideTitle: 'Editable pathway',
       slideSubtitle: '',
@@ -60,12 +72,38 @@ const lecture = {
         diagramRows: [['Source lecture', 'Gemini metadata', 'Jang renderer'], ['Editable PPTX', 'User review']],
         sourceReferences: ['sample-2'],
       }],
+    }, {
+      slideId: 'sample-image-slide',
+      slideTitle: '',
+      slideSubtitle: '',
+      sourceReferences: ['sample-3'],
+      blocks: [{
+        blockId: 'sample-image-block',
+        type: 'image',
+        slotId: 'sample-image',
+        label: 'Native image with editable caption',
+        description: 'Aspect-ratio-safe SVG embedded in the sample presentation.',
+        important: true,
+        sourceReference: 'sample-3',
+        fit: 'cover',
+        preferredAspect: 'automatic',
+        sourceReferences: ['sample-3'],
+      }],
     }],
   }],
   endNote: 'End of sample lecture',
 };
 
-const result = await generateLecturePptx(lecture, {}, { strictGeometry: true });
+const sampleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1E3A5F"/><circle cx="210" cy="180" r="90" fill="#C9922A"/><rect x="330" y="100" width="210" height="160" rx="18" fill="#EFF6FF"/><text x="435" y="190" text-anchor="middle" font-family="Arial" font-size="28" fill="#1E3A5F">Editable image</text></svg>`;
+const images = {
+  'sample-image': {
+    fileName: 'sample-image.svg',
+    mimeType: 'image/svg+xml',
+    dataUrl: `data:image/svg+xml;base64,${Buffer.from(sampleSvg).toString('base64')}`,
+  },
+};
+
+const result = await generateLecturePptx(lecture, images, { strictGeometry: true });
 const outputDir = resolve('generated');
 await mkdir(outputDir, { recursive: true });
 const outputPath = resolve(outputDir, 'jang-pptx-engine-sample.pptx');
