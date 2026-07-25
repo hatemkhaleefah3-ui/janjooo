@@ -51,12 +51,14 @@ export function listTextRuns(items: Array<string | ListItem>, type: 'bullet' | '
         indentLevel: runIndex === 0 ? level : undefined,
       };
       if (runIndex === 0 && !continued) {
-        options.bullet = ({
-          type,
-          indent: 18 + level * 16,
-          hanging: 4,
-          ...(type === 'number' ? { numberStartAt: startAt + numberOffset } : {}),
-        } as unknown) as PptxGenJS.TextPropsOptions['bullet'];
+        options.bullet = type === 'bullet'
+          ? true
+          : (({
+              type: 'number',
+              indent: 18 + level * 16,
+              hanging: 4,
+              numberStartAt: startAt + numberOffset,
+            } as unknown) as PptxGenJS.TextPropsOptions['bullet']);
       }
       result.push({ text: run.text, options });
     });
