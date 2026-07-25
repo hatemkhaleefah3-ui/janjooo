@@ -1,26 +1,12 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
-import {
-  CONTENT_X, CONTENT_WIDTH, SECTION_HEADER_Y,
-  SLIDE_NUMBER_X, SLIDE_NUMBER_Y, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
-} from '../template/geometry';
+import { CONTENT_X } from '../template/geometry';
+import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
 import { extractIntrinsicImageSize, fitImageContain, fitImageCover, isUsableImageDataUrl } from './image-sizing';
 import type { ImageBlock, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
 export interface ImageRenderResult { rendered: boolean; warnings: string[]; }
-
-function addSectionHeader(slide: PptxGenJS.Slide, sectionTitle: string): void {
-  slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x: 0, y: SECTION_HEADER_Y, w: THEME.SLIDE_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fill: { color: THEME.SECTION_HEADER_BG }, line: { color: THEME.SECTION_HEADER_BG, width: 0 },
-  });
-  slide.addText(sectionTitle, {
-    x: CONTENT_X, y: SECTION_HEADER_Y, w: CONTENT_WIDTH, h: THEME.SECTION_HEADER_HEIGHT,
-    fontFace: THEME.FONT, fontSize: THEME.FONT_SECTION_HEADER, color: THEME.SECTION_HEADER_TEXT,
-    align: 'left', valign: 'middle',
-  });
-}
 
 export function renderImageSlide(
   pptx: PptxGenJS,
@@ -31,17 +17,18 @@ export function renderImageSlide(
   const warnings: string[] = [];
   const slide = pptx.addSlide();
   slide.background = { color: THEME.SLIDE_BG };
-  addSectionHeader(slide, sectionTitle);
+  addEditorialHeader(slide, 'Image evidence', sectionTitle);
 
-  const captionH = THEME.H_CAPTION + 0.1;
-  const area = {
-    x: CONTENT_X,
-    y: CONTENT_Y_AFTER_HEADER + 0.1,
-    w: CONTENT_WIDTH,
-    h: SAFE_BOTTOM - (CONTENT_Y_AFTER_HEADER + 0.1) - captionH - 0.15,
-  };
+  const frame = { x: CONTENT_X, y: 1.55, w: 6.15, h: 4.72 };
+  const copy = { x: 7.32, y: 1.62, w: 4.7, h: 4.65 };
+  slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, {
+    ...frame, rectRadius: 0.06,
+    fill: { color: THEME.WHITE }, line: { color: THEME.DIVIDER_COLOR, width: 0.6 },
+  } as never);
+
   const imported = importedImages[block.slotId];
   let rendered = false;
+  const imageArea = { x: frame.x + 0.22, y: frame.y + 0.22, w: frame.w - 0.44, h: frame.h - 0.44 };
 
   if (!imported?.dataUrl) {
     warnings.push(`Image slot "${block.slotId}" (${richTextToPlain(block.label)}) has no imported image — placeholder shown.`);
@@ -52,20 +39,16 @@ export function renderImageSlide(
     if (!intrinsic) {
       warnings.push(`Image slot "${block.slotId}" could not be decoded safely — placeholder shown.`);
     } else {
-      // The decoded file dimensions are authoritative. preferredAspect is a
-      // layout hint for extraction/UI workflows and must never stretch pixels.
-      const aspect = intrinsic.aspect;
       try {
         if (block.fit === 'cover') {
-          const frame = fitImageCover(area.x, area.y, area.w, area.h);
+          const dimensions = fitImageCover(imageArea.x, imageArea.y, imageArea.w, imageArea.h);
           slide.addImage({
             data: imported.dataUrl,
-            ...frame,
-            sizing: { type: 'cover', w: frame.w, h: frame.h },
+            ...dimensions,
+            sizing: { type: 'cover', w: dimensions.w, h: dimensions.h },
           });
         } else {
-          const dimensions = fitImageContain(area.x, area.y, area.w, area.h, aspect);
-          slide.addImage({ data: imported.dataUrl, ...dimensions });
+          slide.addImage({ data: imported.dataUrl, ...fitImageContain(imageArea.x, imageArea.y, imageArea.w, imageArea.h, intrinsic.aspect) });
         }
         rendered = true;
       } catch (error) {
@@ -75,52 +58,65 @@ export function renderImageSlide(
     }
   }
 
-  if (!rendered) renderPlaceholder(slide, block, area.x, area.y, area.w, area.h);
+  if (!rendered) renderPlaceholder(slide, block, imageArea.x, imageArea.y, imageArea.w, imageArea.h);
 
-  slide.addText(richTextRuns(block.label), {
-    x: CONTENT_X, y: area.y + area.h + 0.1, w: CONTENT_WIDTH, h: captionH,
-    fontFace: THEME.FONT, fontSize: THEME.FONT_CAPTION, italic: true,
-    color: THEME.CAPTION_COLOR, align: 'center', valign: 'top', wrap: true,
+  slide.addText('IMAGE / EDITABLE OBJECT', {
+    x: copy.x, y: copy.y, w: copy.w, h: 0.18,
+    fontFace: THEME.labelFont, fontSize: 8, bold: true,
+    charSpacing: 1.5, color: THEME.MUTED_TEXT, margin: 0,
   });
-  slide.slideNumber = {
-    x: SLIDE_NUMBER_X, y: SLIDE_NUMBER_Y, fontFace: THEME.FONT,
-    fontSize: THEME.FONT_SLIDE_NUMBER, color: THEME.SLIDE_NUMBER_COLOR,
-  };
+  slide.addText(richTextRuns(block.label), {
+    x: copy.x, y: copy.y + 0.45, w: copy.w, h: 0.82,
+    fontFace: THEME.headingFont, fontSize: 23, bold: true,
+    color: THEME.DARK_TEXT, margin: 0,
+    align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+  });
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: copy.x, y: copy.y + 1.5, w: 1.05, h: 0,
+    line: { color: THEME.DARK_TEXT, width: 1.4 },
+  });
+  if (richTextToPlain(block.description).trim()) {
+    slide.addText(richTextRuns(block.description), {
+      x: copy.x, y: copy.y + 1.82, w: copy.w, h: 1.55,
+      fontFace: THEME.bodyFont, fontSize: 15,
+      color: THEME.BODY_TEXT, margin: 0,
+      align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+    });
+  }
+  slide.addText(block.fit === 'cover' ? 'COVER CROP' : 'CONTAIN / FULL IMAGE', {
+    x: copy.x, y: copy.y + 3.72, w: copy.w, h: 0.18,
+    fontFace: THEME.labelFont, fontSize: 8, bold: true,
+    charSpacing: 1.2, color: THEME.MUTED_TEXT, margin: 0,
+  });
+  if (block.sourceReference) {
+    slide.addText(`Source: ${block.sourceReference}`, {
+      x: copy.x, y: copy.y + 4.06, w: copy.w, h: 0.22,
+      fontFace: THEME.bodyFont, fontSize: THEME.FONT_CAPTION,
+      italic: true, color: THEME.CAPTION_COLOR, margin: 0,
+      align: 'left', valign: 'top', fit: 'shrink',
+    });
+  }
+
+  addEditorialFooter(slide, sectionTitle);
   return { rendered, warnings };
 }
 
 function renderPlaceholder(slide: PptxGenJS.Slide, block: ImageBlock, areaX: number, areaY: number, areaW: number, areaH: number): void {
-  const padX = areaW * 0.05;
-  const x = areaX + padX;
-  const w = areaW - 2 * padX;
   slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
-    x, y: areaY, w, h: areaH,
+    x: areaX, y: areaY, w: areaW, h: areaH,
     fill: { color: THEME.PLACEHOLDER_BG },
-    line: { color: THEME.PLACEHOLDER_BORDER, width: 1.5, dashType: 'dash' },
+    line: { color: THEME.PLACEHOLDER_BORDER, width: 1, dashType: 'dash' },
   });
-  const midY = areaY + areaH / 2;
   slide.addText('[Image not imported]', {
-    x, y: midY - 0.3, w, h: 0.32,
-    fontFace: THEME.FONT, fontSize: 13, bold: true,
-    color: THEME.PLACEHOLDER_TEXT, align: 'center', valign: 'middle',
+    x: areaX + 0.4, y: areaY + areaH / 2 - 0.2, w: areaW - 0.8, h: 0.22,
+    fontFace: THEME.labelFont, fontSize: 9, bold: true,
+    charSpacing: 1.2, color: THEME.PLACEHOLDER_TEXT, margin: 0,
+    align: 'center', valign: 'middle',
   });
   slide.addText(richTextRuns(block.label), {
-    x, y: midY + 0.05, w, h: 0.28,
-    fontFace: THEME.FONT, fontSize: 11, color: THEME.BODY_TEXT,
-    align: 'center', valign: 'middle', wrap: true,
+    x: areaX + 0.5, y: areaY + areaH / 2 + 0.12, w: areaW - 1, h: 0.48,
+    fontFace: THEME.bodyFont, fontSize: 12,
+    color: THEME.BODY_TEXT, margin: 0,
+    align: 'center', valign: 'top', wrap: true, fit: 'shrink',
   });
-  if (richTextToPlain(block.description).trim()) {
-    slide.addText(richTextRuns(block.description), {
-      x: x + 0.4, y: midY + 0.4, w: w - 0.8, h: 0.45,
-      fontFace: THEME.FONT, fontSize: 10, italic: true,
-      color: THEME.MUTED_TEXT, align: 'center', valign: 'top', wrap: true,
-    });
-  }
-  if (block.sourceReference) {
-    slide.addText(`Source: ${block.sourceReference}`, {
-      x, y: areaY + areaH - 0.28, w, h: 0.24,
-      fontFace: THEME.FONT, fontSize: 9, color: THEME.MUTED_TEXT,
-      align: 'center', valign: 'middle',
-    });
-  }
 }
