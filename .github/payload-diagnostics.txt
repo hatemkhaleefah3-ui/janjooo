@@ -1,0 +1,54 @@
+Expected combined base64 sha256: 737329f730f18516892013f0ed87fd79e7db9021dc3f9e7256db340c3d4edb65
+Expected decoded zip sha256: bcfa89b3597a4f360af74f9d11af4f52d60bccd1abf2b7e6486f054213851a10
+
+10000 .github/payload/part01
+10000 .github/payload/part02
+10000 .github/payload/part03
+10000 .github/payload/part04
+10000 .github/payload/part05
+ 1688 .github/payload/part06
+51688 total
+
+6f03e9d548e9d7c6f9d57415c3d9a5e51d50f9a2610dc50f4633060bd60c9154  .github/payload/part01
+e55b197fd84782efcb4a605d25af0e2fb90d5f715cbad97f995c867690fd9d50  .github/payload/part02
+38e3bde9db782108bb8d3e1b1fd29f97fd204a434dff10a63d93d5e942d5d2ff  .github/payload/part03
+76f73fe0a8ba7ab45fc1e0dcee50dc39bd7b89562a9d679fa1b19bea8374592a  .github/payload/part04
+abc5c5e01444a61998cd2fa60470d4b22857202aef64f92d1ada8ba1092c104d  .github/payload/part05
+ab3c6d8256353c2dc1d7193c42b6ebaa40c76ef83966028beb224163804b2f84  .github/payload/part06
+
+70249bb15438965df0c2782bc62f9378d55a4edf6a6a36bc8e77c605b361149e  -
+063651f5ec836cb25063294461068dc931009d38c1eb6c3e454e3336848d086c  /tmp/completion.zip
+Archive:  /tmp/completion.zip
+    testing: .github/workflows/pptx-engine-ci.yml   OK
+    testing: package.json             OK
+    testing: artifacts/jang-pptx/README.md   OK
+    testing: artifacts/jang-pptx/package.json   OK
+    testing: artifacts/jang-pptx/scripts/generate-sample.mjs   OK
+    testing: artifacts/jang-pptx/src/index.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/compose-slides.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/generate-lecture-pptx.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/geometry-validation.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/image-sizing.ts   bad CRC adc946ae  (should be 3b7bf7f8)
+    testing: artifacts/jang-pptx/src/renderer/paginate-content.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/render-content-slide.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/render-diagram.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/render-image.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/render-table.ts   OK
+    testing: artifacts/jang-pptx/src/renderer/rich-text.ts   OK
+    testing: artifacts/jang-pptx/src/schema/lecture-schema.json   OK
+    testing: artifacts/jang-pptx/src/schema/lecture-types.ts   OK
+    testing: artifacts/jang-pptx/src/template/theme.ts   OK
+    testing: artifacts/jang-pptx/src/tests/diagram-layout.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/geometry-validation.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/image-layout.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/pagination.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/pptx-generation.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/rich-text.test.ts   OK
+    testing: artifacts/jang-pptx/src/tests/table-layout.test.ts   OK
+    testing: artifacts/jang-pptx/tsconfig.demo.json   OK
+    testing: artifacts/jang-pptx/tsconfig.lib.json   OK
+    testing: artifacts/jang-pptx/tsconfig.typecheck.json   OK
+    testing: artifacts/jang-pptx/vite.config.ts   OK
+    testing: artifacts/jang-pptx/vite.lib.config.ts   OK
+At least one error was detected in /tmp/completion.zip.
+zip validation failed
