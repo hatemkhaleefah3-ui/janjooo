@@ -2,7 +2,7 @@
 
 A deterministic TypeScript renderer that converts structured lecture JSON into a native, editable `.pptx` file. It uses PptxGenJS directly; it does not convert HTML or screenshots into slides.
 
-The existing Jang visual design is preserved: navy section bands, gold accents, editable cover/overview/section/content/ending slides, callouts, tables, pathway diagrams, image slides, and consistent spacing.
+The default theme implements the approved premium academic design: editorial black and graphite surfaces, paper-white content slides, generous margins, Aptos typography, restrained rules, and consistent editable cover, overview, section, content, table, diagram, image, and closing layouts.
 
 ## Installation
 
@@ -43,8 +43,8 @@ const { blob, warnings, slideCount } = await generateLecturePptx(
     theme: {
       bodyFont: 'Aptos',
       headingFont: 'Aptos Display',
-      NAVY: '1E3A5F',
-      GOLD: 'C9922A',
+      NAVY: '111111',
+      SLIDE_BG: 'FAFAF9',
     },
   },
 );
@@ -97,9 +97,10 @@ pnpm --filter @jang/pptx-engine typecheck
 pnpm --filter @jang/pptx-engine test
 pnpm --filter @jang/pptx-engine build
 pnpm --filter @jang/pptx-engine sample
+pnpm --filter @jang/pptx-engine sample:design
 ```
 
-Generated output appears in `artifacts/jang-pptx/generated/`.
+Generated output appears in `artifacts/jang-pptx/generated/`. `sample:design` creates a richer engine-output deck that exercises the approved design across content, lists, callouts, tables, diagrams, images, sections, and continuation behavior.
 
 The React demo is retained and built separately into `demo-dist/` so it is not shipped in the library tarball. The reusable library is emitted to `dist/` with JavaScript, source maps, and TypeScript declarations.
 

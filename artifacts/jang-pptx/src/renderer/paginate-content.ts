@@ -103,7 +103,8 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
   const availableForPage = (first: boolean): number => {
     const hasTitle = first && slide.slideTitle.trim().length > 0;
     const hasSubtitle = first && richTextToPlain(slide.slideSubtitle).trim().length > 0;
-    return Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle) - 0.1);
+    // Reserve additional visual breathing room above the editorial footer.
+    return Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle) - 0.55);
   };
 
   const flush = (): void => {

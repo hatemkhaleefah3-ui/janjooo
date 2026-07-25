@@ -89,7 +89,7 @@ const lecture = {
   endNote: 'End of sample lecture',
 };
 
-const sampleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#1E3A5F"/><circle cx="210" cy="180" r="90" fill="#C9922A"/><rect x="330" y="100" width="210" height="160" rx="18" fill="#EFF6FF"/><text x="435" y="190" text-anchor="middle" font-family="Arial" font-size="28" fill="#1E3A5F">Editable image</text></svg>`;
+const sampleSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="640" height="360" fill="#111111"/><circle cx="210" cy="180" r="90" fill="#777777"/><rect x="330" y="100" width="210" height="160" rx="18" fill="#F0F0EF"/><text x="435" y="190" text-anchor="middle" font-family="Arial" font-size="28" fill="#111111">Editable image</text></svg>`;
 const images = {
   'sample-image': {
     fileName: 'sample-image.svg',
