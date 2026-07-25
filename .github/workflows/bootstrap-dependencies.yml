@@ -8,7 +8,7 @@ permissions:
   contents: write
 
 jobs:
-  apply:
+  inventory:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -18,68 +18,21 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Diagnose verified replacement chunks
+      - name: Record payload inventory
         shell: bash
         run: |
-          set -u
-          if [ ! -f .github/payload/ready-v2 ]; then
-            echo "Verified replacement chunks are still being staged."
-            exit 0
-          fi
-
-          files=(
-            .github/payload/part01
-            .github/payload/part02a
-            .github/payload/part02b
-            .github/payload/part02c
-            .github/payload/part02d
-            .github/payload/part03
-            .github/payload/part04
-            .github/payload/part05
-            .github/payload/part06
-          )
-          diagnostic=.github/payload-diagnostics-v2.txt
+          diagnostic=.github/payload-inventory.txt
           {
-            echo "Expected replacement hashes:"
-            echo "part02a 6bc4da3667b6df89090307ce970322c8c5d1a4f7ee0957620e2c9682dc727aef"
-            echo "part02b a0b8a8f60ef91de6628b91635864f8db6b27c72d045b66b85a0005dc11cb90f1"
-            echo "part02c c024bbff62da793aa951ac432e45c92017c8b16107616b5d86413d3bbe441be7"
-            echo "part02d 9cf298faaac03fea56a29569bb3fad11dc379a946bfb0b84a0a491939491929c"
-            echo "combined 737329f730f18516892013f0ed87fd79e7db9021dc3f9e7256db340c3d4edb65"
-            echo "zip bcfa89b3597a4f360af74f9d11af4f52d60bccd1abf2b7e6486f054213851a10"
+            echo "payload inventory"
+            date -u
             echo
-            wc -c "${files[@]}"
+            find .github/payload -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
             echo
-            sha256sum "${files[@]}"
-            echo
-            cat "${files[@]}" | sha256sum
-          } > "$diagnostic" 2>&1
-
-          failed=0
-          if ! cat "${files[@]}" | base64 -d > /tmp/completion.zip 2>> "$diagnostic"; then
-            echo "base64 decode failed" >> "$diagnostic"
-            failed=1
-          else
-            sha256sum /tmp/completion.zip >> "$diagnostic"
-            if ! unzip -t /tmp/completion.zip >> "$diagnostic" 2>&1; then
-              echo "zip validation failed" >> "$diagnostic"
-              failed=1
-            fi
-          fi
+            sha256sum .github/payload/*
+          } > "$diagnostic" 2>&1 || true
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          if [ "$failed" -ne 0 ]; then
-            git add "$diagnostic"
-            git commit -m "chore: record replacement payload diagnostics" || true
-            git push origin HEAD:${{ github.event.pull_request.head.ref }}
-            exit 1
-          fi
-
-          unzip -oq /tmp/completion.zip -d .
-          rm -rf .github/payload
-          rm -f .github/payload-diagnostics.txt "$diagnostic"
-          rm -f .github/workflows/apply-completion.yml
-          git add -A
-          git commit -m "feat: complete production PPTX engine"
+          git add "$diagnostic"
+          git commit -m "chore: record payload inventory" || true
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
