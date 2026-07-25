@@ -39,7 +39,24 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Typecheck library and demo
-        run: pnpm --filter @jang/pptx-engine typecheck
+        id: typecheck
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          pnpm --filter @jang/pptx-engine typecheck 2>&1 | tee typecheck.log
+
+      - name: Upload typecheck diagnostics
+        if: steps.typecheck.outcome == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pptx-engine-typecheck-diagnostics
+          path: typecheck.log
+          if-no-files-found: error
+
+      - name: Stop after typecheck failure
+        if: steps.typecheck.outcome == 'failure'
+        run: exit 1
 
       - name: Run unit and OOXML tests
         run: pnpm --filter @jang/pptx-engine test
