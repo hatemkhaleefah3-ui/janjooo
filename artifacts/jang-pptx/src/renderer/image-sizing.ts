@@ -11,13 +11,9 @@ export function fitImageContain(areaX: number, areaY: number, areaW: number, are
   return { x: areaX + (areaW - w) / 2, y: areaY + (areaH - h) / 2, w, h };
 }
 
-/** Geometry of the uncropped image needed to cover an area. */
-export function fitImageCover(areaX: number, areaY: number, areaW: number, areaH: number, aspect?: number): ImageDimensions {
-  if (!aspect || !Number.isFinite(aspect) || aspect <= 0) return { x: areaX, y: areaY, w: areaW, h: areaH };
-  const areaAspect = areaW / areaH;
-  const w = aspect >= areaAspect ? areaH * aspect : areaW;
-  const h = aspect >= areaAspect ? areaH : areaW / aspect;
-  return { x: areaX + (areaW - w) / 2, y: areaY + (areaH - h) / 2, w, h };
+/** Target frame used by PptxGenJS native `cover` cropping. */
+export function fitImageCover(areaX: number, areaY: number, areaW: number, areaH: number): ImageDimensions {
+  return { x: areaX, y: areaY, w: areaW, h: areaH };
 }
 
 export function guessAspect(preferredAspect: string): number | undefined {
@@ -31,11 +27,12 @@ export function guessAspect(preferredAspect: string): number | undefined {
 }
 
 function decodeBase64(value: string): Uint8Array {
+  const compact = value.replace(/\s/g, '');
   if (typeof atob === 'function') {
-    const binary = atob(value.replace(/\s/g, ''));
+    const binary = atob(compact);
     return Uint8Array.from(binary, (char) => char.charCodeAt(0));
   }
-  return new Uint8Array(Buffer.from(value, 'base64'));
+  return new Uint8Array(Buffer.from(compact, 'base64'));
 }
 
 function decodeUtf8(bytes: Uint8Array): string {
@@ -47,14 +44,21 @@ function parseDataUrl(dataUrl: string): ParsedDataUrl | undefined {
   const match = /^data:([^;,]+)(;base64)?,(.*)$/is.exec(dataUrl.trim());
   if (!match || !match[1].toLowerCase().startsWith('image/')) return undefined;
   try {
-    const bytes = match[2] ? decodeBase64(match[3]) : new TextEncoder().encode(decodeURIComponent(match[3]));
-    return { mimeType: match[1].toLowerCase(), bytes, ...(match[1].toLowerCase() === 'image/svg+xml' ? { text: decodeUtf8(bytes) } : {}) };
+    const mimeType = match[1].toLowerCase();
+    const encoded = match[3];
+    if (match[2]) {
+      const compact = encoded.replace(/\s/g, '');
+      if (!compact || compact.length % 4 === 1 || !/^[A-Za-z0-9+/]*={0,2}$/.test(compact)) return undefined;
+    }
+    const bytes = match[2] ? decodeBase64(encoded) : new TextEncoder().encode(decodeURIComponent(encoded));
+    if (!bytes.length) return undefined;
+    return { mimeType, bytes, ...(mimeType === 'image/svg+xml' ? { text: decodeUtf8(bytes) } : {}) };
   } catch {
     return undefined;
   }
 }
 
-export function isSupportedImageDataUrl(dataUrl: string): boolean {
+export function isUsableImageDataUrl(dataUrl: string): boolean {
   const parsed = parseDataUrl(dataUrl);
   return Boolean(parsed && ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'image/svg+xml'].includes(parsed.mimeType));
 }
@@ -113,7 +117,7 @@ function svgSize(text: string): [number, number] | undefined {
 }
 
 /** Reads PNG/JPEG/GIF/WebP/SVG dimensions synchronously in Node or browser. */
-export function extractImageDimensionsFromDataUrl(dataUrl: string): IntrinsicImageSize | undefined {
+export function extractIntrinsicImageSize(dataUrl: string): IntrinsicImageSize | undefined {
   const parsed = parseDataUrl(dataUrl);
   if (!parsed) return undefined;
   let dimensions: [number, number] | undefined;
@@ -131,5 +135,9 @@ export function extractImageDimensionsFromDataUrl(dataUrl: string): IntrinsicIma
 
 /** Backward-compatible async API. */
 export async function extractAspectFromDataUrl(dataUrl: string): Promise<number | undefined> {
-  return extractImageDimensionsFromDataUrl(dataUrl)?.aspect;
+  return extractIntrinsicImageSize(dataUrl)?.aspect;
 }
+
+/** Backward-compatible aliases retained for existing integrations. */
+export const isSupportedImageDataUrl = isUsableImageDataUrl;
+export const extractImageDimensionsFromDataUrl = extractIntrinsicImageSize;
