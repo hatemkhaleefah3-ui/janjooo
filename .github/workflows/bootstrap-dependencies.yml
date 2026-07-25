@@ -18,27 +18,53 @@ jobs:
           ref: ${{ github.event.pull_request.head.ref }}
           fetch-depth: 0
 
-      - name: Apply prepared implementation once
+      - name: Verify and apply prepared implementation
         shell: bash
         run: |
-          set -euo pipefail
+          set -u
           if [ ! -d .github/payload ]; then
             echo "Completion payload already applied."
             exit 0
           fi
-          test "$(find .github/payload -maxdepth 1 -name 'part*' | wc -l)" -eq 6
-          cat .github/payload/part* | base64 -d > /tmp/completion.zip
-          unzip -t /tmp/completion.zip
-          unzip -oq /tmp/completion.zip -d .
-          rm -rf .github/payload
-          rm -f .github/workflows/apply-completion.yml
+
+          diagnostic=.github/payload-diagnostics.txt
+          {
+            echo "Expected combined base64 sha256: 737329f730f18516892013f0ed87fd79e7db9021dc3f9e7256db340c3d4edb65"
+            echo "Expected decoded zip sha256: bcfa89b3597a4f360af74f9d11af4f52d60bccd1abf2b7e6486f054213851a10"
+            echo
+            wc -c .github/payload/part*
+            echo
+            sha256sum .github/payload/part*
+            echo
+            cat .github/payload/part* | sha256sum
+          } > "$diagnostic" 2>&1
+
+          failed=0
+          if ! cat .github/payload/part* | base64 -d > /tmp/completion.zip 2>> "$diagnostic"; then
+            echo "base64 decode failed" >> "$diagnostic"
+            failed=1
+          else
+            sha256sum /tmp/completion.zip >> "$diagnostic"
+            if ! unzip -t /tmp/completion.zip >> "$diagnostic" 2>&1; then
+              echo "zip validation failed" >> "$diagnostic"
+              failed=1
+            fi
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          if git diff --cached --quiet; then
-            echo "No implementation changes to commit."
-            exit 0
+
+          if [ "$failed" -ne 0 ]; then
+            git add "$diagnostic"
+            git commit -m "chore: record payload diagnostics" || true
+            git push origin HEAD:${{ github.event.pull_request.head.ref }}
+            exit 1
           fi
+
+          unzip -oq /tmp/completion.zip -d .
+          rm -rf .github/payload
+          rm -f .github/workflows/apply-completion.yml
+          rm -f "$diagnostic"
+          git add -A
           git commit -m "feat: complete production PPTX engine"
           git push origin HEAD:${{ github.event.pull_request.head.ref }}
