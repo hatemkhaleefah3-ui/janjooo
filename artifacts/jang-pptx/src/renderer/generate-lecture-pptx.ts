@@ -69,8 +69,9 @@ export async function generateLecturePptx(
     }
 
     const writeOptions = { compression: options.compression !== false };
+    const isBrowserRuntime = typeof globalThis === 'object' && 'window' in globalThis;
     let blob: Blob;
-    if (typeof window !== 'undefined') {
+    if (isBrowserRuntime) {
       blob = await pptx.write({ outputType: 'blob', ...writeOptions } as never) as Blob;
     } else {
       const buffer = await pptx.write({ outputType: 'nodebuffer', ...writeOptions } as never);
