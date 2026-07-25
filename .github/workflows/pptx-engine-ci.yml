@@ -38,39 +38,60 @@ jobs:
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Typecheck library and demo
-        id: typecheck
+      - name: Run full verification suite
+        id: verification
         continue-on-error: true
         shell: bash
         run: |
-          set -o pipefail
-          pnpm --filter @jang/pptx-engine typecheck 2>&1 | tee typecheck.log
+          set -u
+          failed=0
 
-      - name: Upload typecheck diagnostics
-        if: steps.typecheck.outcome == 'failure'
+          run_check() {
+            local name="$1"
+            shift
+            echo "::group::$name"
+            set +e
+            "$@" 2>&1 | tee "${name}.log"
+            local code=${PIPESTATUS[0]}
+            set -e
+            echo "::endgroup::"
+            if [ "$code" -ne 0 ]; then
+              echo "$name failed with exit code $code"
+              failed=1
+            fi
+          }
+
+          run_check typecheck pnpm --filter @jang/pptx-engine typecheck
+          run_check tests pnpm --filter @jang/pptx-engine test
+          run_check build pnpm --filter @jang/pptx-engine build
+
+          if [ -d artifacts/jang-pptx/dist ]; then
+            run_check sample pnpm --filter @jang/pptx-engine sample
+            if [ -f artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx ]; then
+              run_check inspect pnpm --filter @jang/pptx-engine inspect:sample
+            else
+              echo "Sample PPTX was not generated." | tee inspect.log
+              failed=1
+            fi
+            run_check package pnpm --filter @jang/pptx-engine pack:check
+          else
+            echo "Build output is missing; sample and package checks skipped." | tee sample.log inspect.log package.log
+            failed=1
+          fi
+
+          exit "$failed"
+
+      - name: Upload verification diagnostics
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pptx-engine-typecheck-diagnostics
-          path: typecheck.log
+          name: pptx-engine-verification-diagnostics
+          path: '*.log'
           if-no-files-found: error
 
-      - name: Stop after typecheck failure
-        if: steps.typecheck.outcome == 'failure'
+      - name: Stop after verification failure
+        if: steps.verification.outcome == 'failure'
         run: exit 1
-
-      - name: Run unit and OOXML tests
-        run: pnpm --filter @jang/pptx-engine test
-
-      - name: Build library and React demo
-        run: pnpm --filter @jang/pptx-engine build
-
-      - name: Generate and inspect sample PPTX
-        run: |
-          pnpm --filter @jang/pptx-engine sample
-          pnpm --filter @jang/pptx-engine inspect:sample
-
-      - name: Verify packed clean-consumer import
-        run: pnpm --filter @jang/pptx-engine pack:check
 
       - name: Upload sample presentation
         uses: actions/upload-artifact@v4
