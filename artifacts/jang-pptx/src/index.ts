@@ -1,5 +1,5 @@
 /** Public API for the deterministic Jang PPTX engine. */
-export { generateLecturePptx } from './renderer/generate-lecture-pptx';
+export { generateLecturePptx, LectureValidationError } from './renderer/generate-lecture-pptx';
 export type {
   GenerationOptions,
   GenerationResult,
