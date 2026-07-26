@@ -184,3 +184,56 @@ describe('validateLecture — schema and semantic checks', () => {
     expect(result.errors.some((e) => e.includes('empty node'))).toBe(true);
   });
 });
+
+describe('schema 1.2 hierarchy contract', () => {
+  it('accepts traceable definitions, title blocks, and section-title key terms', () => {
+    const doc = {
+      schemaVersion: '1.2' as const,
+      documentTitle: 'Hierarchical lecture',
+      direction: 'ltr' as const,
+      overview: { title: 'Overview', introduction: 'Sequence', keyPoints: ['Metabolism'] },
+      sections: [{
+        sectionId: 'metabolism',
+        sectionTitle: 'Metabolism',
+        sectionDefinition: 'The coordinated transformation and use of biochemical substrates.',
+        slides: [{
+          slideId: 'topic',
+          slideTitle: 'Glycine pathways',
+          titleDefinition: 'Routes that synthesize, use, and degrade glycine.',
+          slideSubtitle: 'Core reactions',
+          subtitleDefinition: 'The principal ordered conversions and their enzymes.',
+          sourceReferences: ['p1'],
+          blocks: [
+            { blockId: 't2', type: 'title' as const, text: 'Clinical consequences', definition: 'Effects of pathway disruption.', sourceReferences: ['p2'] },
+            { blockId: 's2', type: 'subtitle' as const, text: 'Nonketotic hyperglycinemia', definition: 'A disorder caused by impaired glycine cleavage.', sourceReferences: ['p2'] },
+            { blockId: 'p2', type: 'paragraph' as const, text: 'Glycine accumulates in body fluids.', sourceReferences: ['p2'] },
+          ],
+        }],
+      }],
+      endNote: 'Questions',
+    };
+    expect(validateLecture(doc)).toMatchObject({ valid: true, errors: [] });
+  });
+
+  it('requires definitions and exact section-title key terms for schema 1.2', () => {
+    const doc = {
+      schemaVersion: '1.2' as const,
+      documentTitle: 'Invalid hierarchy',
+      direction: 'ltr' as const,
+      overview: { title: 'Overview', introduction: 'Sequence', keyPoints: ['Unrelated term'] },
+      sections: [{
+        sectionId: 's', sectionTitle: 'Section', slides: [{
+          slideId: 'sl', slideTitle: 'Title', slideSubtitle: 'Sub-title', sourceReferences: [],
+          blocks: [{ blockId: 'p', type: 'paragraph' as const, text: 'Text', sourceReferences: [] }],
+        }],
+      }],
+      endNote: 'Questions',
+    };
+    const result = validateLecture(doc);
+    expect(result.valid).toBe(false);
+    expect(result.errors.join('\n')).toMatch(/sectionDefinition/);
+    expect(result.errors.join('\n')).toMatch(/titleDefinition/);
+    expect(result.errors.join('\n')).toMatch(/subtitleDefinition/);
+    expect(result.errors.join('\n')).toMatch(/overview\.keyPoints/);
+  });
+});

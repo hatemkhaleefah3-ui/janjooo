@@ -46,7 +46,7 @@ describe('immutable content slide render plan', () => {
   it('preserves the approved editorial layout while owning every content box', () => {
     const plan = createContentSlideRenderPlan(mixedBlocks(), planningInput());
 
-    expect(plan.layout).toBe('text-image');
+    expect(plan.layout).toBe('text-companion');
     expect(plan.title?.box.x).toBe(CONTENT_X);
     expect(plan.titleRule?.box.w).toBe(1.12);
     expect(plan.image?.box.x).toBe(IMAGE_COLUMN_X);
@@ -77,7 +77,7 @@ describe('immutable content slide render plan', () => {
     expect(plan.titleRule).toBeDefined();
     expect(plan.subtitle).toBeDefined();
     expect(plan.title!.box.h).toBeGreaterThan(THEME.TITLE_HEIGHT);
-    expect(plan.titleRule!.box.y).toBeGreaterThan(bottom(plan.title!.box));
+    expect(plan.titleRule!.box.y - bottom(plan.title!.box)).toBeCloseTo(3 / 96, 8);
     expect(plan.subtitle!.box.y).toBeGreaterThan(plan.titleRule!.box.y);
     expect(plan.blocks[0].box.y).toBeGreaterThanOrEqual(bottom(plan.subtitle!.box));
     expect(validateContentSlideRenderPlan(plan)).toEqual([]);

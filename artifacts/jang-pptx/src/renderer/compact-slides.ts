@@ -1,7 +1,7 @@
 import { getAvailableHeight } from '../template/geometry';
 import { estimateBlockHeight, isDedicatedBlock } from './paginate-content';
 import { richTextToPlain } from './rich-text';
-import type { LectureBlock, LectureSlide, SubtitleBlock } from '../schema/lecture-types';
+import type { LectureBlock, LectureSlide, SubtitleBlock, TitleBlock } from '../schema/lecture-types';
 
 /**
  * Fraction of a single page's usable height a merged group may occupy.
@@ -21,18 +21,30 @@ function nonDedicatedHeight(blocks: LectureBlock[]): number {
   return blocks.reduce((sum, block) => sum + (isDedicatedBlock(block) ? 0 : estimateBlockHeight(block)), 0);
 }
 
-/** An inline heading for a merged-in topic, so its title is never silently dropped. */
-function topicHeadingBlock(slide: LectureSlide): SubtitleBlock | undefined {
+/** A logical title group retained when adjacent topics share a physical slide. */
+function topicHeadingBlock(slide: LectureSlide): TitleBlock | undefined {
   const title = slide.slideTitle.trim();
   if (!title) return undefined;
-  return { blockId: `${slide.slideId}--heading`, type: 'subtitle', text: slide.slideTitle, sourceReferences: [...slide.sourceReferences] };
+  return {
+    blockId: `${slide.slideId}--title`,
+    type: 'title',
+    text: slide.slideTitle,
+    ...(slide.titleDefinition ? { definition: slide.titleDefinition } : {}),
+    sourceReferences: [...slide.sourceReferences],
+  };
 }
 
-/** An inline paragraph for a merged-in topic's subtitle, so it isn't dropped either. */
-function subtitleParagraphBlock(slide: LectureSlide): LectureBlock | undefined {
+/** A top-level sub-title group retained beneath its logical title. */
+function subtitleBlock(slide: LectureSlide): SubtitleBlock | undefined {
   const text = richTextToPlain(slide.slideSubtitle).trim();
   if (!text) return undefined;
-  return { blockId: `${slide.slideId}--subtitle`, type: 'paragraph', text: slide.slideSubtitle, sourceReferences: [...slide.sourceReferences] };
+  return {
+    blockId: `${slide.slideId}--subtitle`,
+    type: 'subtitle',
+    text: slide.slideSubtitle,
+    ...(slide.subtitleDefinition ? { definition: slide.subtitleDefinition } : {}),
+    sourceReferences: [...slide.sourceReferences],
+  };
 }
 
 /**
@@ -52,8 +64,8 @@ export function compactSectionSlides(slides: LectureSlide[]): LectureSlide[] {
   for (const slide of slides) {
     if (current) {
       const heading = topicHeadingBlock(slide);
-      const subtitleBlock = subtitleParagraphBlock(slide);
-      const additions = [heading, subtitleBlock, ...slide.blocks].filter(
+      const subTitle = subtitleBlock(slide);
+      const additions = [heading, subTitle, ...slide.blocks].filter(
         (block): block is LectureBlock => Boolean(block),
       );
       const additionHeight = nonDedicatedHeight(additions);
@@ -111,7 +123,13 @@ export function verifyNoContentLoss(original: LectureSlide[], compacted: Lecture
   const compactedText = compacted
     .flatMap((slide) => [
       slide.slideTitle,
-      ...slide.blocks.map((block) => ('text' in block ? richTextToPlain(block.text) : '')),
+      slide.titleDefinition ? richTextToPlain(slide.titleDefinition) : '',
+      richTextToPlain(slide.slideSubtitle),
+      slide.subtitleDefinition ? richTextToPlain(slide.subtitleDefinition) : '',
+      ...slide.blocks.flatMap((block) => [
+        'text' in block ? richTextToPlain(block.text) : '',
+        'definition' in block && block.definition ? richTextToPlain(block.definition) : '',
+      ]),
     ])
     .join(' \n ');
   for (const title of originalTitles) {

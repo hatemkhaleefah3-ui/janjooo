@@ -65,6 +65,7 @@ export type {
   ImportedImage,
   ExtractionAudit,
   BaseBlock,
+  TitleBlock,
   SubtitleBlock,
   ParagraphBlock,
   BulletsBlock,

@@ -8,21 +8,32 @@ export function addEditorialHeader(
   section = '',
   dark = false,
 ): void {
-  const foreground = dark ? THEME.WHITE : THEME.DARK_TEXT;
-  const muted = dark ? THEME.MUTED_ON_DARK : THEME.MUTED_TEXT;
+  if (!dark) {
+    slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
+      x: 0, y: 0, w: THEME.SLIDE_WIDTH, h: 0.94,
+      fill: { color: THEME.NAVY }, line: { color: THEME.NAVY, width: 0 },
+    });
+    slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
+      x: 0, y: 0.9, w: THEME.SLIDE_WIDTH, h: 0.04,
+      fill: { color: THEME.MID_GRAY }, line: { color: THEME.MID_GRAY, width: 0 },
+    });
+  }
+
+  const foreground = THEME.WHITE;
+  const muted = THEME.MUTED_ON_DARK;
   slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-    x: CONTENT_X, y: 0.48, w: 0.46, h: 0,
+    x: CONTENT_X, y: 0.32, w: 0.46, h: 0,
     line: { color: foreground, width: 1.2 },
   });
   slide.addText(label.toUpperCase(), {
-    x: CONTENT_X, y: 0.62, w: 5.6, h: 0.18,
+    x: CONTENT_X, y: 0.49, w: 5.6, h: 0.18,
     fontFace: THEME.labelFont, fontSize: THEME.FONT_SECTION_HEADER,
     bold: true, charSpacing: 1.8, color: foreground, margin: 0,
     align: 'left', valign: 'top',
   });
   if (section) {
     slide.addText(section.toUpperCase(), {
-      x: 8.1, y: 0.62, w: 4.55, h: 0.18,
+      x: 8.1, y: 0.49, w: 4.55, h: 0.18,
       fontFace: THEME.labelFont, fontSize: THEME.FONT_SECTION_HEADER,
       bold: true, charSpacing: 1.2, color: muted, margin: 0,
       align: 'right', valign: 'top', fit: 'shrink',
@@ -35,12 +46,23 @@ export function addEditorialFooter(
   label: string,
   dark = false,
 ): void {
-  const foreground = dark ? THEME.MUTED_ON_DARK : THEME.DARK_TEXT;
-  const rule = dark ? THEME.DARK_RULE : THEME.DIVIDER_COLOR;
-  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-    x: CONTENT_X, y: 6.87, w: CONTENT_WIDTH, h: 0,
-    line: { color: rule, width: 0.5 },
-  });
+  if (!dark) {
+    slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
+      x: 0, y: 6.82, w: THEME.SLIDE_WIDTH, h: THEME.SLIDE_HEIGHT - 6.82,
+      fill: { color: THEME.GRAPHITE }, line: { color: THEME.GRAPHITE, width: 0 },
+    });
+    slide.addShape('rect' as PptxGenJS.SHAPE_NAME, {
+      x: 0, y: 6.82, w: THEME.SLIDE_WIDTH, h: 0.035,
+      fill: { color: THEME.MID_GRAY }, line: { color: THEME.MID_GRAY, width: 0 },
+    });
+  } else {
+    slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+      x: CONTENT_X, y: 6.87, w: CONTENT_WIDTH, h: 0,
+      line: { color: THEME.DARK_RULE, width: 0.5 },
+    });
+  }
+
+  const foreground = THEME.MUTED_ON_DARK;
   slide.addText(label.toUpperCase(), {
     x: CONTENT_X, y: 7.01, w: 4.6, h: 0.14,
     fontFace: THEME.labelFont, fontSize: THEME.FONT_SLIDE_NUMBER,

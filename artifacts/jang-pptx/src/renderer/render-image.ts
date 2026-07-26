@@ -8,6 +8,18 @@ import { richTextRuns, richTextToPlain } from './rich-text';
 
 export interface ImageRenderResult { rendered: boolean; warnings: string[]; }
 
+const INFORMATION_BEARING_IMAGE_TYPES = new Set([
+  'pathway', 'chart', 'microscopy', 'radiology', 'anatomy', 'diagram',
+]);
+
+/** Applies the crop policy without allowing imported bytes to affect layout. */
+export function effectiveImageFit(block: ImageBlock): 'contain' | 'cover' {
+  if (block.visualType === 'photo' || block.visualType === 'decorative') return 'cover';
+  if (block.visualType && INFORMATION_BEARING_IMAGE_TYPES.has(block.visualType)) return 'contain';
+  return block.fit;
+}
+
+
 /**
  * Renders an image (or its placeholder) into an arbitrary rectangular area.
  * Shared by dedicated and mixed layouts. Imported bytes affect only painting
@@ -36,7 +48,7 @@ export function paintImageIntoArea(
       warnings.push(`Image slot "${block.slotId}" could not be decoded safely — placeholder shown.`);
     } else {
       try {
-        if (block.fit === 'cover') {
+        if (effectiveImageFit(block) === 'cover') {
           const dimensions = fitImageCover(areaX, areaY, areaW, areaH);
           slide.addImage({
             data: imported.dataUrl,
@@ -122,7 +134,7 @@ export function renderDedicatedImageSlide(
       fit: 'shrink',
     });
   }
-  slide.addText(plan.block.fit === 'cover' ? 'COVER CROP' : 'CONTAIN / FULL IMAGE', {
+  slide.addText(effectiveImageFit(plan.block) === 'cover' ? 'COVER CROP' : 'CONTAIN / FULL IMAGE', {
     ...plan.fitLabelBox,
     fontFace: THEME.labelFont,
     fontSize: 8,
