@@ -2,7 +2,7 @@ import { THEME } from '../template/theme';
 import {
   CONTENT_X,
   CONTENT_WIDTH,
-  getContentYStart,
+  CONTENT_Y_AFTER_HEADER,
   IMAGE_COLUMN_WIDTH,
   IMAGE_COLUMN_X,
   SAFE_BOTTOM,
@@ -11,6 +11,7 @@ import {
 import type { ImageBlock, LectureBlock, RichText } from '../schema/lecture-types';
 import { estimateBlockHeight } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
+import { measureTextBoxHeight, ruleYAfterTitle } from './title-spacing';
 import {
   assertValidContentSlideRenderPlan,
   type ContentSlideRenderPlan,
@@ -29,8 +30,73 @@ export interface ContentSlidePlanningInput {
   sectionTitle: string;
 }
 
+export interface ContentHeadingMetrics {
+  hasTitle: boolean;
+  hasSubtitle: boolean;
+  titleY: number;
+  titleWidth: number;
+  titleHeight: number;
+  titleRuleY: number;
+  subtitleY: number;
+  subtitleHeight: number;
+  contentStartY: number;
+}
+
 function plannedText(role: PlannedTextElement['role'], text: RichText, box: LayoutBox): PlannedTextElement {
   return { role, text, box };
+}
+
+/**
+ * Measures the complete title/subtitle stack used by both page selection and
+ * rendering. Wrapped headings therefore move the decorative rule, subtitle,
+ * and body together rather than shrinking underneath a fixed rule position.
+ */
+export function measureContentHeading(
+  input: ContentSlidePlanningInput,
+  textWidth: number,
+): ContentHeadingMetrics {
+  const hasTitle = input.isFirstPage && Boolean(input.slideTitle.trim());
+  const hasSubtitle = input.isFirstPage && Boolean(richTextToPlain(input.slideSubtitle).trim());
+  const titleY = CONTENT_Y_AFTER_HEADER;
+  const titleWidth = Math.min(CONTENT_WIDTH, 8.5);
+  const titleHeight = hasTitle
+    ? measureTextBoxHeight(
+      input.slideTitle,
+      titleWidth,
+      THEME.FONT_SLIDE_TITLE,
+      THEME.TITLE_HEIGHT,
+      1.34,
+      0.05,
+    )
+    : 0;
+  const titleRuleY = hasTitle ? ruleYAfterTitle(titleY, titleHeight, 0.06) : titleY;
+  const afterTitleY = hasTitle ? titleRuleY + 0.17 : titleY;
+  const subtitleY = afterTitleY;
+  const subtitleHeight = hasSubtitle
+    ? measureTextBoxHeight(
+      input.slideSubtitle,
+      Math.min(textWidth, 8.4),
+      THEME.FONT_SLIDE_SUBTITLE,
+      THEME.SUBTITLE_HEIGHT,
+      0.72,
+      0.03,
+    )
+    : 0;
+  const contentStartY = hasSubtitle
+    ? subtitleY + subtitleHeight + THEME.SUBTITLE_GAP
+    : afterTitleY;
+
+  return {
+    hasTitle,
+    hasSubtitle,
+    titleY,
+    titleWidth,
+    titleHeight,
+    titleRuleY,
+    subtitleY,
+    subtitleHeight,
+    contentStartY,
+  };
 }
 
 function blockBox(block: LectureBlock, currentY: number, textWidth: number, height: number): LayoutBox {
@@ -117,9 +183,8 @@ export function createContentSlideRenderPlan(
   const imageBlock = blocks.find((block): block is ImageBlock => block.type === 'image');
   const nonImageBlocks = blocks.filter((block) => block.type !== 'image');
   const textWidth = imageBlock ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
-  const hasTitle = input.isFirstPage && Boolean(input.slideTitle.trim());
-  const hasSubtitle = input.isFirstPage && Boolean(richTextToPlain(input.slideSubtitle).trim());
-  const contentStartY = getContentYStart(hasTitle, hasSubtitle);
+  const heading = measureContentHeading(input, textWidth);
+  const contentStartY = heading.contentStartY;
 
   const plan: ContentSlideRenderPlan = {
     kind: 'content',
@@ -137,26 +202,25 @@ export function createContentSlideRenderPlan(
     blocks: [],
   };
 
-  if (hasTitle) {
-    const titleY = getContentYStart(false, false);
+  if (heading.hasTitle) {
     plan.title = plannedText('title', input.slideTitle, {
       x: CONTENT_X,
-      y: titleY,
-      w: Math.min(CONTENT_WIDTH, 8.5),
-      h: THEME.TITLE_HEIGHT,
+      y: heading.titleY,
+      w: heading.titleWidth,
+      h: heading.titleHeight,
     });
     plan.titleRule = {
       role: 'title-rule',
-      box: { x: CONTENT_X, y: titleY + THEME.TITLE_HEIGHT + 0.03, w: 1.12, h: 0 },
+      box: { x: CONTENT_X, y: heading.titleRuleY, w: 1.12, h: 0 },
     };
   }
 
-  if (hasSubtitle) {
+  if (heading.hasSubtitle) {
     plan.subtitle = plannedText('subtitle', input.slideSubtitle, {
       x: CONTENT_X,
-      y: getContentYStart(hasTitle, false),
+      y: heading.subtitleY,
       w: Math.min(textWidth, 8.4),
-      h: THEME.SUBTITLE_HEIGHT,
+      h: heading.subtitleHeight,
     });
   }
 
