@@ -1,0 +1,117 @@
+name: Validate dense contract follow-up
+
+on:
+  push:
+    branches: [feature/dense-content-spacing]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/dense-content-spacing
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Apply follow-up patch
+        run: node scripts/fix-dense-validation.mjs
+
+      - name: Validate complete engine
+        id: validation
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts/jang-pptx/validation artifacts/jang-pptx/standalone
+          : > artifacts/jang-pptx/validation/dense-contract.log
+
+          run_check() {
+            name="$1"
+            shift
+            echo "## $name" | tee -a artifacts/jang-pptx/validation/dense-contract.log
+            "$@" >> artifacts/jang-pptx/validation/dense-contract.log 2>&1
+            code=$?
+            echo "$name=$code" | tee -a artifacts/jang-pptx/validation/dense-contract.log
+            return $code
+          }
+
+          install=1; typecheck=1; tests=1; library=1; sample=1; inspect=1; standalone=1
+          run_check install pnpm install --frozen-lockfile; install=$?
+          if [ "$install" -eq 0 ]; then
+            run_check typecheck pnpm --dir artifacts/jang-pptx typecheck; typecheck=$?
+            run_check tests pnpm --dir artifacts/jang-pptx test; tests=$?
+            run_check library pnpm --dir artifacts/jang-pptx build:lib; library=$?
+            if [ "$library" -eq 0 ]; then
+              run_check sample pnpm --dir artifacts/jang-pptx sample; sample=$?
+              run_check inspect pnpm --dir artifacts/jang-pptx inspect:sample; inspect=$?
+            fi
+
+            cat > artifacts/jang-pptx/vite.standalone.config.ts <<'EOF'
+          import path from 'node:path';
+          import { fileURLToPath } from 'node:url';
+          import { defineConfig } from 'vite';
+          const root = path.dirname(fileURLToPath(import.meta.url));
+          export default defineConfig({
+            publicDir: false,
+            build: {
+              lib: {
+                entry: path.resolve(root, 'src/index.ts'),
+                formats: ['es'],
+                fileName: () => 'pptx-engine.js',
+              },
+              outDir: path.resolve(root, 'standalone'),
+              emptyOutDir: true,
+              sourcemap: false,
+              minify: 'esbuild',
+              rollupOptions: { output: { inlineDynamicImports: true } },
+            },
+          });
+          EOF
+            run_check standalone pnpm --dir artifacts/jang-pptx exec vite build --config vite.standalone.config.ts; standalone=$?
+            rm -f artifacts/jang-pptx/vite.standalone.config.ts
+          fi
+
+          if [ "$install" -eq 0 ] && [ "$typecheck" -eq 0 ] && [ "$tests" -eq 0 ] && [ "$library" -eq 0 ] && [ "$sample" -eq 0 ] && [ "$inspect" -eq 0 ] && [ "$standalone" -eq 0 ]; then
+            overall=success
+          else
+            overall=failure
+          fi
+
+          cat > artifacts/jang-pptx/validation/dense-contract-status.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "overall": "${overall}",
+            "install": ${install},
+            "typecheck": ${typecheck},
+            "tests": ${tests},
+            "library": ${library},
+            "sample": ${sample},
+            "inspect": ${inspect},
+            "standalone": ${standalone}
+          }
+          EOF
+          echo "overall=$overall" >> "$GITHUB_OUTPUT"
+
+      - name: Commit tested source, status, and standalone browser engine
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Fix dense layout regressions and rebuild browser engine"
+          git push origin HEAD:feature/dense-content-spacing
+
+      - name: Enforce validation result
+        if: steps.validation.outputs.overall != 'success'
+        run: |
+          cat artifacts/jang-pptx/validation/dense-contract.log
+          exit 1
