@@ -213,12 +213,11 @@ export function planLectureSlide(
 
       if (next.type === 'image' && hasInlineImage(pageBlocks)) break;
 
-      // A new logical title may remain on this physical slide only when the
-      // preceding natural content footprint uses 50% or less of the available
-      // content area. Sub-titles do not trigger this boundary rule.
+      // Keep compatible title groups together until the preceding natural
+      // content footprint exceeds the preferred 90% utilization target.
       if (next.type === 'title' && pageBlocks.length > 0) {
         const prior = tryPlan(slide, sectionTitle, pageIndex, pageBlocks);
-        if (prior && prior.naturalUtilization > 0.5 + 0.001) break;
+        if (prior && prior.naturalUtilization > 0.9 + 0.001) break;
       }
 
       const candidate = [...pageBlocks, next];
