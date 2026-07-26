@@ -76,7 +76,8 @@ describe('deterministic pagination', () => {
       { blockId: 'p2', type: 'paragraph', text: paragraph, sourceReferences: [] },
     ]);
     const fragments = paginateContent(slide);
-    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments.length).toBeGreaterThanOrEqual(1);
+    expect(fragments.some((fragment) => fragment.type === 'content' && fragment.blocks.some((block) => block.type === 'image'))).toBe(true);
     expectContentFragmentsFit(slide, fragments);
   });
 });

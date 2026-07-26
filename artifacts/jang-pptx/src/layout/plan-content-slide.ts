@@ -258,8 +258,8 @@ function planImage(
   const labelHeight = isMixedPage && imageLabel ? 0.34 : 0;
   const descriptionHeight = isMixedPage && imageDescription ? 0.48 : 0;
   const sourceHeight = sourceReference ? 0.2 : 0;
-  const hasCaption = Boolean(labelHeight || descriptionHeight || sourceHeight);
-  const captionReserve = labelHeight + descriptionHeight + sourceHeight + (hasCaption ? CONTENT_GAP : 0);
+  const captionPartCount = [labelHeight, descriptionHeight, sourceHeight].filter((height) => height > 0).length;
+  const captionReserve = labelHeight + descriptionHeight + sourceHeight + CONTENT_GAP * captionPartCount;
   const imageAreaH = Math.max(1.2, SAFE_BOTTOM - imageAreaY - captionReserve);
   const image: PlannedImageElement = {
     block: imageBlock,

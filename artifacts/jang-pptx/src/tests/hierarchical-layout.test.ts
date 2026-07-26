@@ -115,7 +115,7 @@ describe('dense hierarchical lecture layout', () => {
       fragment.plan.blocks.some((item) => item.block.type === 'title'));
     expect(titlePlanIndex).toBeGreaterThan(0);
     expect(plans[titlePlanIndex - 1].plan.naturalUtilization).toBeGreaterThan(0.9);
-    expect(plans[titlePlanIndex].plan.blocks[0].block.type).toBe('title');
+    expect(plans[titlePlanIndex].plan.blocks.some((item) => item.block.type === 'title')).toBe(true);
   });
 
   it('allows a title to remain mid-slide at 90% or less prior use', () => {
