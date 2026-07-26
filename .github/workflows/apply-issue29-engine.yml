@@ -43,14 +43,22 @@ jobs:
       - name: Install workspace
         run: pnpm install --frozen-lockfile
 
-      - name: First source verification
+      - name: Typecheck engine and demo
+        run: pnpm --dir artifacts/jang-pptx typecheck
+
+      - name: Run complete source tests
+        run: pnpm --dir artifacts/jang-pptx test
+
+      - name: Build engine and demo
+        run: pnpm --dir artifacts/jang-pptx build
+
+      - name: Generate and inspect standard sample
         run: |
-          pnpm --dir artifacts/jang-pptx typecheck
-          pnpm --dir artifacts/jang-pptx test
-          pnpm --dir artifacts/jang-pptx build
           pnpm --dir artifacts/jang-pptx sample
           pnpm --dir artifacts/jang-pptx inspect:sample
-          pnpm --dir artifacts/jang-pptx pack:check
+
+      - name: Verify packed clean consumer
+        run: pnpm --dir artifacts/jang-pptx pack:check
 
       - name: Generate issue 29 review deck
         run: node artifacts/jang-pptx/scripts/generate-hierarchical-review.mjs
@@ -68,10 +76,14 @@ jobs:
           pdftoppm -png -r 110 artifacts/jang-pptx/generated/issue29-render/issue29-hierarchical-review.pdf artifacts/jang-pptx/generated/issue29-render/slide
           test -n "$(find artifacts/jang-pptx/generated/issue29-render -name 'slide-*.png' -print -quit)"
 
-      - name: Second independent source verification
+      - name: Second independent typecheck
+        run: pnpm --dir artifacts/jang-pptx typecheck
+
+      - name: Second independent test run
+        run: pnpm --dir artifacts/jang-pptx test
+
+      - name: Second independent build and review generation
         run: |
-          pnpm --dir artifacts/jang-pptx typecheck
-          pnpm --dir artifacts/jang-pptx test
           pnpm --dir artifacts/jang-pptx build
           node artifacts/jang-pptx/scripts/generate-hierarchical-review.mjs
 
