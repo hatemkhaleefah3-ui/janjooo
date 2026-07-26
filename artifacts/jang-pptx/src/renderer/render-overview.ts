@@ -3,7 +3,7 @@ import { THEME } from '../template/theme';
 import { OVERVIEW_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
-import { measureTextBoxHeight } from '../layout/title-spacing';
+import { CONTENT_GAP, measureTextBoxHeight, ruleYAfterTitle } from '../layout/title-spacing';
 import type { LectureDocument } from '../schema/lecture-types';
 import { listTextRuns, richTextRuns, richTextToPlain } from './rich-text';
 
@@ -21,7 +21,8 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
     1.02,
     0.04,
   );
-  const introY = OVERVIEW_LAYOUT.TITLE_Y + titleHeight + 0.18;
+  const titleRuleY = ruleYAfterTitle(OVERVIEW_LAYOUT.TITLE_Y, titleHeight);
+  const introY = titleRuleY + CONTENT_GAP;
   const introduction = lecture.overview.introduction;
   const hasIntroduction = Boolean(richTextToPlain(introduction).trim());
   const introHeight = hasIntroduction
@@ -42,6 +43,10 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
     bold: true, color: THEME.DARK_TEXT, margin: 0,
     align: 'left', valign: 'top', wrap: true, fit: 'shrink',
   });
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    x: OVERVIEW_LAYOUT.TITLE_X, y: titleRuleY, w: 1.12, h: 0,
+    line: { color: THEME.DARK_TEXT, width: 1.4 },
+  });
 
   if (hasIntroduction) {
     slide.addText(richTextRuns(introduction), {
@@ -54,7 +59,7 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
   }
 
   const sectionCount = Math.max(1, lecture.sections.length);
-  const sectionListY = Math.max(2.82, introY + introHeight + 0.18);
+  const sectionListY = Math.max(2.82, introY + introHeight + CONTENT_GAP);
   const availableSectionHeight = Math.max(0.9, 6.18 - sectionListY);
   const rowH = Math.min(0.68, Math.max(0.34, availableSectionHeight / sectionCount));
   lecture.sections.forEach((section, index) => {
@@ -87,14 +92,14 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
     fontFace: THEME.labelFont, fontSize: 8, bold: true,
     charSpacing: 1.5, color: THEME.MUTED_TEXT, margin: 0,
   });
-  const keyTerms = lecture.sections.map((section) => section.sectionTitle);
+  const keyTerms = lecture.overview.keyPoints.map((item) => richTextToPlain(item)).filter(Boolean);
   if (keyTerms.length > 0) {
     slide.addText(listTextRuns(keyTerms.map((text) => ({ text })), 'bullet'), {
       x: OVERVIEW_LAYOUT.RIGHT_COL_X + 0.34, y: OVERVIEW_LAYOUT.TOC_Y,
       w: OVERVIEW_LAYOUT.RIGHT_COL_W - 0.68, h: OVERVIEW_LAYOUT.TOC_H,
       fontFace: THEME.bodyFont, fontSize: THEME.FONT_OVERVIEW_KEYPOINT,
       color: THEME.BODY_TEXT, margin: 0.02,
-      align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 9, fit: 'shrink',
+      align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 2, fit: 'shrink',
     } as PptxGenJS.TextPropsOptions);
   }
 

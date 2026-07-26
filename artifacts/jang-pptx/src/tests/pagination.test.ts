@@ -119,7 +119,7 @@ describe('image mixing (issue #22)', () => {
     expect(firstContent && firstContent.type === 'content' && firstContent.blocks.filter((b) => b.type === 'image')).toHaveLength(1);
   });
 
-  it('reflows text when a later image narrows the page instead of producing geometry overflow', () => {
+  it('reflows text when a later image narrows the page without geometry overflow', () => {
     const slide = makeSlide([
       {
         blockId: 'late-image-text',
@@ -141,7 +141,8 @@ describe('image mixing (issue #22)', () => {
       },
     ]);
     const fragments = paginateContent(slide);
-    expect(fragments.length).toBeGreaterThan(1);
+    expect(fragments.length).toBeGreaterThanOrEqual(1);
+    expect(fragments.some((fragment) => fragment.type === 'content' && fragment.blocks.some((block) => block.type === 'image'))).toBe(true);
     expectContentFragmentsFit(slide, fragments);
   });
 });

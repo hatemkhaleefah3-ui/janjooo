@@ -3,7 +3,7 @@ import { THEME } from '../template/theme';
 import { SECTION_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
-import { measureTextBoxHeight, ruleYAfterTitle } from '../layout/title-spacing';
+import { CONTENT_GAP, measureTextBoxHeight, ruleYAfterTitle } from '../layout/title-spacing';
 import type { LectureSection } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
@@ -25,7 +25,12 @@ export function renderSection(
     line: { color: THEME.DARK_RULE, width: 1 },
   });
   addOrbitArtwork(slide, 9.15, 2.2, 3.4, 3.4);
-  addEditorialHeader(slide, `Section ${String(sectionIndex + 1).padStart(2, '0')}`, section.sectionTitle, true);
+  addEditorialHeader(
+    slide,
+    section.sectionTitle,
+    `Section ${String(sectionIndex + 1).padStart(2, '0')}`,
+    true,
+  );
 
   slide.addText(String(sectionIndex + 1).padStart(2, '0'), {
     x: 10.05, y: SECTION_LAYOUT.NUMBER_Y, w: 1.45, h: SECTION_LAYOUT.NUMBER_H,
@@ -56,13 +61,13 @@ export function renderSection(
   });
 
   if (section.sectionDefinition && richTextToPlain(section.sectionDefinition).trim()) {
-    const definitionY = ruleY + 0.12;
+    const definitionY = ruleY + CONTENT_GAP;
     const definitionHeight = measureTextBoxHeight(
       section.sectionDefinition,
       titleWidth,
       THEME.FONT_CALLOUT_TEXT,
-      0.38,
-      1.05,
+      0.84,
+      1.42,
       0.02,
     );
     slide.addText(richTextRuns(section.sectionDefinition), {

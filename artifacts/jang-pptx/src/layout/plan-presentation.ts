@@ -1,4 +1,5 @@
 import type { LectureDocument, LectureSection } from '../schema/lecture-types';
+import { collectOrderedTitleTerms } from '../schema/lecture-title-terms';
 import { compactSectionSlides } from '../renderer/compact-slides';
 import { planLectureSlide, type PlannedLectureSlideFragment } from './plan-lecture-slide';
 
@@ -27,8 +28,9 @@ export function planPresentation(lecture: LectureDocument): PresentationRenderPl
     ...lecture,
     overview: {
       ...lecture.overview,
-      // Key terms are deterministic: exactly one item per section title.
-      keyPoints: lecture.sections.map((section) => section.sectionTitle),
+      // Key terms are every ordered title, excluding section titles and
+      // sub-titles. This stays deterministic even after slide compaction.
+      keyPoints: collectOrderedTitleTerms(lecture),
     },
   };
   const slides: PresentationSlidePlan[] = [

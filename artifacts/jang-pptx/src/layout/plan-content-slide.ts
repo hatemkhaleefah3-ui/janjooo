@@ -17,7 +17,7 @@ import type {
 } from '../schema/lecture-types';
 import { estimateBlockHeight } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
-import { measureTextBoxHeight, ruleYAfterTitle } from './title-spacing';
+import { CONTENT_GAP, measureTextBoxHeight, ruleYAfterTitle } from './title-spacing';
 import {
   assertValidContentSlideRenderPlan,
   bottom,
@@ -57,10 +57,9 @@ export interface ContentHeadingMetrics {
   contentStartY: number;
 }
 
-const TITLE_DEFINITION_GAP = 0.1;
-const HEADING_SECTION_GAP = 0.14;
-const SUBTITLE_DEFINITION_GAP = 0.05;
-const MIN_CONTENT_UTILIZATION = 0.6;
+const TITLE_DEFINITION_GAP = CONTENT_GAP;
+const HEADING_SECTION_GAP = CONTENT_GAP;
+const SUBTITLE_DEFINITION_GAP = CONTENT_GAP;
 
 function plannedText(role: PlannedTextElement['role'], text: RichText, box: LayoutBox): PlannedTextElement {
   return { role, text, box };
@@ -72,8 +71,9 @@ function hasText(value: RichText | undefined): boolean {
 
 /**
  * Measures the complete title / definition / sub-title / definition stack.
- * Pagination and rendering use these exact values, so one-, two-, and
- * three-line headings reserve the same physical geometry that PowerPoint uses.
+ * Pagination and rendering use these exact values, so one-, two-, three-, or
+ * four-line headings keep the decorative rule exactly two pixels below the
+ * final rendered line.
  */
 export function measureContentHeading(
   input: ContentSlidePlanningInput,
@@ -102,8 +102,8 @@ export function measureContentHeading(
       input.titleDefinition!,
       Math.min(textWidth, 9.4),
       THEME.FONT_CALLOUT_TEXT,
-      0.32,
-      0.85,
+      0.52,
+      0.82,
       0.02,
     )
     : 0;
@@ -155,28 +155,17 @@ export function measureContentHeading(
   };
 }
 
-function companionPriority(block: LectureBlock): number {
-  switch (block.type) {
-    case 'image': return 0;
-    case 'table': return 1;
-    case 'bullets':
-    case 'numbered': return 2;
-    case 'callout': return 3;
-    default: return Number.POSITIVE_INFINITY;
-  }
-}
-
+/**
+ * Images have first priority for the right column. A table may use the right
+ * column only when another explanatory block can occupy the left. Lists,
+ * numbered lists, and notes always remain in the normal left reading flow.
+ */
 export function selectRightSideCompanion(blocks: LectureBlock[]): LectureBlock | undefined {
-  let selected: LectureBlock | undefined;
-  let rank = Number.POSITIVE_INFINITY;
-  for (const block of blocks) {
-    const current = companionPriority(block);
-    if (current < rank) {
-      selected = block;
-      rank = current;
-    }
-  }
-  return selected;
+  const image = blocks.find((block) => block.type === 'image');
+  if (image) return image;
+
+  const table = blocks.find((block) => block.type === 'table');
+  return table && blocks.some((block) => block !== table) ? table : undefined;
 }
 
 function ordinaryBlockBox(block: LectureBlock, currentY: number, textWidth: number, height: number): LayoutBox {
@@ -212,7 +201,7 @@ function planHeadingBlock(
     const ruleY = ruleYAfterTitle(currentY, titleHeight);
     const definitionY = ruleY + TITLE_DEFINITION_GAP;
     const definitionHeight = hasText(block.definition)
-      ? measureTextBoxHeight(block.definition!, textWidth, THEME.FONT_CALLOUT_TEXT, 0.3, 0.82, 0.02)
+      ? measureTextBoxHeight(block.definition!, textWidth, THEME.FONT_CALLOUT_TEXT, 0.52, 0.82, 0.02)
       : 0;
     const totalHeight = definitionY + definitionHeight + HEADING_SECTION_GAP - currentY;
     return {
@@ -268,26 +257,26 @@ function planImage(
   const labelHeight = isMixedPage && imageLabel ? 0.34 : 0;
   const descriptionHeight = isMixedPage && imageDescription ? 0.48 : 0;
   const sourceHeight = sourceReference ? 0.2 : 0;
-  const hasCaption = Boolean(labelHeight || descriptionHeight || sourceHeight);
-  const captionReserve = labelHeight + descriptionHeight + sourceHeight + (hasCaption ? 0.16 : 0);
-  const imageAreaH = Math.max(1.2, SAFE_BOTTOM - imageAreaY - captionReserve);
+  const captionPartCount = [labelHeight, descriptionHeight, sourceHeight].filter((height) => height > 0).length;
+  const captionReserve = labelHeight + descriptionHeight + sourceHeight + CONTENT_GAP * captionPartCount;
+  const imageAreaH = Math.max(1.1, SAFE_BOTTOM - imageAreaY - captionReserve - 0.01);
   const image: PlannedImageElement = {
     block: imageBlock,
     box: { x: IMAGE_COLUMN_X, y: imageAreaY, w: IMAGE_COLUMN_WIDTH, h: imageAreaH },
   };
 
-  let captionY = imageAreaY + imageAreaH + 0.08;
+  let captionY = imageAreaY + imageAreaH + CONTENT_GAP;
   if (labelHeight) {
     image.label = plannedText('image-label', imageBlock.label, {
       x: IMAGE_COLUMN_X, y: captionY, w: IMAGE_COLUMN_WIDTH, h: labelHeight,
     });
-    captionY += labelHeight;
+    captionY += labelHeight + CONTENT_GAP;
   }
   if (descriptionHeight) {
     image.description = plannedText('image-description', imageBlock.description, {
       x: IMAGE_COLUMN_X, y: captionY, w: IMAGE_COLUMN_WIDTH, h: descriptionHeight,
     });
-    captionY += descriptionHeight;
+    captionY += descriptionHeight + CONTENT_GAP;
   }
   if (sourceHeight) {
     image.source = plannedText('image-source', `Source: ${sourceReference}`, {
@@ -313,51 +302,9 @@ function plannedBottom(plan: ContentSlideRenderPlan): number {
 }
 
 /**
- * Spreads sparse content to a minimum 60% content-area footprint without
- * changing wording, order, classification, or font sizes. Adjacent title
- * compaction remains the primary density mechanism; this is the deterministic
- * final fallback for inherently short topics.
- */
-function expandSparsePlan(plan: ContentSlideRenderPlan): void {
-  const targetBottom = plan.contentBounds.y + plan.contentBounds.h * MIN_CONTENT_UTILIZATION;
-  let currentBottom = plannedBottom(plan);
-  let extra = targetBottom - currentBottom;
-  if (extra <= 0.001) return;
-
-  if (plan.blocks.length >= 2) {
-    const step = extra / (plan.blocks.length - 1);
-    plan.blocks.forEach((item, index) => {
-      if (index === 0) return;
-      const shift = step * index;
-      item.box.y += shift;
-      if (item.textBox) item.textBox.y += shift;
-      if (item.ruleBox) item.ruleBox.y += shift;
-      if (item.definitionBox) item.definitionBox.y += shift;
-    });
-  } else if (plan.blocks.length === 1) {
-    plan.blocks[0].box.h += extra;
-  } else if (plan.companion) {
-    plan.companion.box.h += extra;
-  } else if (plan.imageCompanionDescription) {
-    plan.imageCompanionDescription.box.h += extra;
-  }
-
-  // A taller companion may have been the original bottom. Guarantee the final
-  // footprint reaches the target even when distributed left-column spacing
-  // did not become the new maximum.
-  currentBottom = plannedBottom(plan);
-  extra = targetBottom - currentBottom;
-  if (extra <= 0.001) return;
-  if (plan.blocks.length > 0) plan.blocks[plan.blocks.length - 1].box.h += extra;
-  else if (plan.companion) plan.companion.box.h += extra;
-  else if (plan.imageCompanionDescription) plan.imageCompanionDescription.box.h += extra;
-}
-
-
-/**
  * Converts one already-selected content page into one immutable physical plan.
- * The planner chooses a right-side companion by image → table → list → note.
- * With no supported companion, all existing content uses the full width.
+ * The right side is reserved only for an image or a supported table companion;
+ * lists and notes remain in the normal left reading flow.
  */
 export function createContentSlideRenderPlan(
   blocks: LectureBlock[],
@@ -452,7 +399,7 @@ export function createContentSlideRenderPlan(
       plan.imageCompanionLabel = plannedText('image-companion-label', imageBlock.label, {
         x: CONTENT_X, y: currentY, w: textWidth, h: 0.72,
       });
-      currentY += 0.9;
+      currentY += 0.72 + CONTENT_GAP;
     }
     if (description) {
       plan.imageCompanionDescription = plannedText('image-companion-description', imageBlock.description, {
@@ -469,9 +416,10 @@ export function createContentSlideRenderPlan(
 
   const naturalBottom = plannedBottom(plan);
   plan.naturalUtilization = Math.max(0, (naturalBottom - contentStartY) / Math.max(0.01, plan.contentBounds.h));
-  expandSparsePlan(plan);
-  const finalBottom = plannedBottom(plan);
-  plan.utilization = Math.max(0, (finalBottom - contentStartY) / Math.max(0.01, plan.contentBounds.h));
+  // Never fake density by stretching gaps or text boxes. Compaction and the
+  // extraction contract create real content density; quality checks flag any
+  // remaining sparse page while the exact two-pixel rhythm remains intact.
+  plan.utilization = plan.naturalUtilization;
 
   assertValidContentSlideRenderPlan(plan);
   return plan;

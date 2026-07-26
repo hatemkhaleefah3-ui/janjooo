@@ -3,6 +3,7 @@ import addFormats from 'ajv-formats';
 import lectureSchemaJson from './lecture-schema.json';
 import type { LectureDocument, ImageBlock, TableBlock, DiagramBlock, RichText, ListItem } from './lecture-types';
 import { listItemLevel, normalizeRichText, richTextToPlain } from '../renderer/rich-text';
+import { collectOrderedTitleTerms } from './lecture-title-terms';
 
 export const lectureSchema: object = lectureSchemaJson;
 
@@ -56,21 +57,15 @@ export function validateLecture(data: unknown): ValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // ─── JSON Schema validation ───────────────────────────────────────────────
   const schemaValid = ajvValidate(data);
   if (!schemaValid && ajvValidate.errors) {
-    for (const err of ajvValidate.errors) {
-      errors.push(formatAjvError(err));
-    }
+    for (const err of ajvValidate.errors) errors.push(formatAjvError(err));
     return { valid: false, errors, warnings };
   }
 
-  // ─── Semantic validation ──────────────────────────────────────────────────
   const doc = data as LectureDocument;
 
-  if (!doc.documentTitle.trim()) {
-    errors.push('documentTitle must not be empty');
-  }
+  if (!doc.documentTitle.trim()) errors.push('documentTitle must not be empty');
 
   const sectionIds = new Set<string>();
   const slideIds = new Set<string>();
@@ -80,33 +75,22 @@ export function validateLecture(data: unknown): ValidationResult {
   const nonEmptySlideTitles = new Set<string>();
 
   for (const section of doc.sections) {
-    if (sectionIds.has(section.sectionId)) {
-      errors.push(`Duplicate sectionId: "${section.sectionId}"`);
-    }
+    if (sectionIds.has(section.sectionId)) errors.push(`Duplicate sectionId: "${section.sectionId}"`);
     sectionIds.add(section.sectionId);
 
-    if (!section.sectionTitle.trim()) {
-      errors.push(`Section "${section.sectionId}" has an empty sectionTitle`);
-    }
+    if (!section.sectionTitle.trim()) errors.push(`Section "${section.sectionId}" has an empty sectionTitle`);
     if (doc.schemaVersion === '1.2' && !richTextToPlain(section.sectionDefinition ?? '').trim()) {
       errors.push(`Section "${section.sectionId}" requires a sectionDefinition in schema 1.2`);
     }
-
-    if (section.slides.length === 0) {
-      errors.push(`Section "${section.sectionId}" has no slides`);
-    }
+    if (section.slides.length === 0) errors.push(`Section "${section.sectionId}" has no slides`);
 
     for (const slide of section.slides) {
-      if (slideIds.has(slide.slideId)) {
-        errors.push(`Duplicate slideId: "${slide.slideId}"`);
-      }
+      if (slideIds.has(slide.slideId)) errors.push(`Duplicate slideId: "${slide.slideId}"`);
       slideIds.add(slide.slideId);
 
       const titleTrimmed = slide.slideTitle.trim();
       if (titleTrimmed) {
-        if (nonEmptySlideTitles.has(titleTrimmed)) {
-          errors.push(`Repeated non-empty slide title: "${titleTrimmed}"`);
-        }
+        if (nonEmptySlideTitles.has(titleTrimmed)) errors.push(`Repeated non-empty slide title: "${titleTrimmed}"`);
         nonEmptySlideTitles.add(titleTrimmed);
         if (doc.schemaVersion === '1.2' && !richTextToPlain(slide.titleDefinition ?? '').trim()) {
           errors.push(`Title "${titleTrimmed}" requires a titleDefinition in schema 1.2`);
@@ -120,14 +104,10 @@ export function validateLecture(data: unknown): ValidationResult {
         errors.push(`Slide "${slide.slideId}" requires a subtitleDefinition for its sub-title in schema 1.2`);
       }
 
-      if (slide.blocks.length === 0) {
-        errors.push(`Slide "${slide.slideId}" has no blocks`);
-      }
+      if (slide.blocks.length === 0) errors.push(`Slide "${slide.slideId}" has no blocks`);
 
       for (const block of slide.blocks) {
-        if (blockIds.has(block.blockId)) {
-          errors.push(`Duplicate blockId: "${block.blockId}"`);
-        }
+        if (blockIds.has(block.blockId)) errors.push(`Duplicate blockId: "${block.blockId}"`);
         blockIds.add(block.blockId);
 
         if (
@@ -140,10 +120,7 @@ export function validateLecture(data: unknown): ValidationResult {
 
         if (block.type === 'image') {
           const img = block as ImageBlock;
-
-          if (imageSlotIds.has(img.slotId)) {
-            errors.push(`Duplicate image slotId: "${img.slotId}"`);
-          }
+          if (imageSlotIds.has(img.slotId)) errors.push(`Duplicate image slotId: "${img.slotId}"`);
           imageSlotIds.add(img.slotId);
 
           if (!richTextToPlain(img.label).trim()) {
@@ -151,22 +128,18 @@ export function validateLecture(data: unknown): ValidationResult {
           } else {
             if (isGenericLabel(richTextToPlain(img.label))) {
               warnings.push(
-              `Image block "${img.blockId}" has a generic label: "${richTextToPlain(img.label)}". Use a specific descriptive label (e.g. "Mitochondria electron micrograph").`,
+                `Image block "${img.blockId}" has a generic label: "${richTextToPlain(img.label)}". Use a specific descriptive label (e.g. "Mitochondria electron micrograph").`,
               );
             }
             const labelLower = richTextToPlain(img.label).toLowerCase().trim();
-            if (imageLabels.has(labelLower)) {
-              warnings.push(`Duplicate image label: "${richTextToPlain(img.label)}"`);
-            }
+            if (imageLabels.has(labelLower)) warnings.push(`Duplicate image label: "${richTextToPlain(img.label)}"`);
             imageLabels.add(labelLower);
           }
         }
 
         if (block.type === 'table') {
           const tbl = block as TableBlock;
-          if (!richTextToPlain(tbl.label).trim()) {
-            errors.push(`Table block "${tbl.blockId}" has no label`);
-          }
+          if (!richTextToPlain(tbl.label).trim()) errors.push(`Table block "${tbl.blockId}" has no label`);
           for (let ri = 0; ri < tbl.rows.length; ri++) {
             if (tbl.rows[ri].length !== tbl.headers.length) {
               errors.push(
@@ -178,15 +151,11 @@ export function validateLecture(data: unknown): ValidationResult {
 
         if (block.type === 'diagram') {
           const dia = block as DiagramBlock;
-          if (!richTextToPlain(dia.label).trim()) {
-            errors.push(`Diagram block "${dia.blockId}" has no label`);
-          }
+          if (!richTextToPlain(dia.label).trim()) errors.push(`Diagram block "${dia.blockId}" has no label`);
           for (let ri = 0; ri < dia.diagramRows.length; ri++) {
             for (let ni = 0; ni < dia.diagramRows[ri].length; ni++) {
               if (!richTextToPlain(dia.diagramRows[ri][ni]).trim()) {
-                errors.push(
-                  `Diagram block "${dia.blockId}" has an empty node at row ${ri}, position ${ni}`,
-                );
+                errors.push(`Diagram block "${dia.blockId}" has an empty node at row ${ri}, position ${ni}`);
               }
             }
           }
@@ -195,8 +164,6 @@ export function validateLecture(data: unknown): ValidationResult {
     }
   }
 
-  // Rich text and list semantics are validated separately so errors point to
-  // the exact lecture location instead of AJV's nested oneOf branches.
   for (const section of doc.sections) {
     for (const slide of section.slides) {
       for (const block of slide.blocks) {
@@ -223,13 +190,9 @@ export function validateLecture(data: unknown): ValidationResult {
         }
         if (block.type === 'table' && block.tableType === 'heatmap' && block.heatmap) {
           if (block.heatmap.max <= block.heatmap.min) errors.push(`${block.blockId}.heatmap.max must be greater than min`);
-          if (block.heatmap.values.length !== block.rows.length) {
-            errors.push(`${block.blockId}.heatmap.values must match row count`);
-          }
+          if (block.heatmap.values.length !== block.rows.length) errors.push(`${block.blockId}.heatmap.values must match row count`);
           block.heatmap.values.forEach((row, rowIndex) => {
-            if (row.length !== block.headers.length) {
-              errors.push(`${block.blockId}.heatmap.values[${rowIndex}] must match column count`);
-            }
+            if (row.length !== block.headers.length) errors.push(`${block.blockId}.heatmap.values[${rowIndex}] must match column count`);
           });
         }
       }
@@ -237,10 +200,10 @@ export function validateLecture(data: unknown): ValidationResult {
   }
 
   if (doc.schemaVersion === '1.2') {
-    const expectedKeyTerms = doc.sections.map((section) => section.sectionTitle.trim());
+    const expectedKeyTerms = collectOrderedTitleTerms(doc).map((title) => title.trim());
     const actualKeyTerms = doc.overview.keyPoints.map((item) => richTextToPlain(item).trim());
     if (JSON.stringify(actualKeyTerms) !== JSON.stringify(expectedKeyTerms)) {
-      errors.push('overview.keyPoints must exactly match the ordered section titles in schema 1.2');
+      errors.push('overview.keyPoints must exactly match all ordered titles, excluding section titles and sub-titles, in schema 1.2');
     }
   }
 
@@ -256,20 +219,13 @@ export function validateLecture(data: unknown): ValidationResult {
       }
     }
     for (const ref of allRefs) {
-      if (!covered.has(ref) && !unmapped.has(ref)) {
-        warnings.push(`Extraction audit: source reference "${ref}" is not covered or unmapped`);
-      }
+      if (!covered.has(ref) && !unmapped.has(ref)) warnings.push(`Extraction audit: source reference "${ref}" is not covered or unmapped`);
     }
   }
 
-  // ─── Extraction audit warnings ────────────────────────────────────────────
   if (doc.extractionAudit) {
-    for (const ref of doc.extractionAudit.unmappedSourceReferences) {
-      warnings.push(`Source reference not mapped to any block: "${ref}"`);
-    }
-    for (const w of doc.extractionAudit.warnings) {
-      warnings.push(`Extraction audit: ${w}`);
-    }
+    for (const ref of doc.extractionAudit.unmappedSourceReferences) warnings.push(`Source reference not mapped to any block: "${ref}"`);
+    for (const w of doc.extractionAudit.warnings) warnings.push(`Extraction audit: ${w}`);
   }
 
   const uniqueErrors = [...new Set(errors)];

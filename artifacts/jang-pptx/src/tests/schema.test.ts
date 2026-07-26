@@ -72,7 +72,7 @@ describe('validateLecture — schema and semantic checks', () => {
         sampleLecture.sections[0],
         {
           ...sampleLecture.sections[1],
-          slides: [{ ...slide }], // reuse same slideId
+          slides: [{ ...slide }],
         },
       ],
     };
@@ -121,7 +121,6 @@ describe('validateLecture — schema and semantic checks', () => {
       ],
     };
     const result = validateLecture(doc);
-    // Label "Image" is generic → warning
     expect(result.warnings.some((w) => w.includes('generic label'))).toBe(true);
   });
 
@@ -140,7 +139,7 @@ describe('validateLecture — schema and semantic checks', () => {
               ...tableSlide,
               blocks: tableSlide.blocks.map((b) =>
                 b.type === 'table'
-                  ? { ...b, rows: [['only one cell']] } // mismatch
+                  ? { ...b, rows: [['only one cell']] }
                   : b,
               ),
             },
@@ -186,25 +185,29 @@ describe('validateLecture — schema and semantic checks', () => {
 });
 
 describe('schema 1.2 hierarchy contract', () => {
-  it('accepts traceable definitions, title blocks, and section-title key terms', () => {
+  it('accepts traceable definitions, title blocks, and ordered title key terms', () => {
     const doc = {
       schemaVersion: '1.2' as const,
       documentTitle: 'Hierarchical lecture',
       direction: 'ltr' as const,
-      overview: { title: 'Overview', introduction: 'Sequence', keyPoints: ['Metabolism'] },
+      overview: {
+        title: 'Overview',
+        introduction: 'Sequence',
+        keyPoints: ['Glycine pathways', 'Clinical consequences'],
+      },
       sections: [{
         sectionId: 'metabolism',
         sectionTitle: 'Metabolism',
-        sectionDefinition: 'The coordinated transformation and use of biochemical substrates.',
+        sectionDefinition: 'Metabolism coordinates the synthesis, use, and degradation of biochemical substrates while connecting energy transfer, cellular function, regulation, and clinically important pathway defects.',
         slides: [{
           slideId: 'topic',
           slideTitle: 'Glycine pathways',
-          titleDefinition: 'Routes that synthesize, use, and degrade glycine.',
+          titleDefinition: 'Glycine pathways describe the principal routes that synthesize, utilize, and degrade glycine and connect those reactions to one-carbon transfer and clinical disease.',
           slideSubtitle: 'Core reactions',
           subtitleDefinition: 'The principal ordered conversions and their enzymes.',
           sourceReferences: ['p1'],
           blocks: [
-            { blockId: 't2', type: 'title' as const, text: 'Clinical consequences', definition: 'Effects of pathway disruption.', sourceReferences: ['p2'] },
+            { blockId: 't2', type: 'title' as const, text: 'Clinical consequences', definition: 'Clinical consequences explain how pathway disruption changes metabolite concentrations and produces characteristic neurological and systemic findings.', sourceReferences: ['p2'] },
             { blockId: 's2', type: 'subtitle' as const, text: 'Nonketotic hyperglycinemia', definition: 'A disorder caused by impaired glycine cleavage.', sourceReferences: ['p2'] },
             { blockId: 'p2', type: 'paragraph' as const, text: 'Glycine accumulates in body fluids.', sourceReferences: ['p2'] },
           ],
@@ -215,7 +218,7 @@ describe('schema 1.2 hierarchy contract', () => {
     expect(validateLecture(doc)).toMatchObject({ valid: true, errors: [] });
   });
 
-  it('requires definitions and exact section-title key terms for schema 1.2', () => {
+  it('requires definitions and exact ordered title terms for schema 1.2', () => {
     const doc = {
       schemaVersion: '1.2' as const,
       documentTitle: 'Invalid hierarchy',

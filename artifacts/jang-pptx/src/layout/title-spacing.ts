@@ -19,10 +19,11 @@ export function measureTextBoxHeight(
   return Math.max(minimum, Math.min(maximum, measured));
 }
 
-/** Three CSS pixels expressed in PowerPoint inches (96 CSS px per inch). */
-export const TITLE_RULE_GAP = 3 / 96;
+/** Two CSS pixels expressed in PowerPoint inches (96 CSS px per inch). */
+export const CONTENT_GAP = 2 / 96;
+export const TITLE_RULE_GAP = CONTENT_GAP;
 
-/** Places the decorative rule exactly 3 px below the measured title. */
+/** Places the decorative rule exactly 2 px below the measured title. */
 export function ruleYAfterTitle(titleY: number, titleHeight: number, gap = TITLE_RULE_GAP): number {
   return titleY + titleHeight + gap;
 }

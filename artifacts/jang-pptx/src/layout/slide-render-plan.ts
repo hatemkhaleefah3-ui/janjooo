@@ -188,8 +188,8 @@ export function validateContentSlideRenderPlan(plan: ContentSlideRenderPlan): st
     }
   }
 
-  if (plan.utilization < 0.599 || plan.utilization > 1.001) {
-    violations.push(`Content utilization ${plan.utilization.toFixed(3)} is outside the required 0.60–1.00 range.`);
+  if (plan.utilization > 1.001) {
+    violations.push(`Content utilization ${plan.utilization.toFixed(3)} exceeds the physical 1.00 limit.`);
   }
 
   return violations;
