@@ -16,6 +16,23 @@ export {
 } from './template/theme';
 export type { JangTheme, ThemeOverrides } from './template/theme';
 
+export { createContentSlideRenderPlan } from './layout/plan-content-slide';
+export {
+  assertValidContentSlideRenderPlan,
+  validateContentSlideRenderPlan,
+  SlideRenderPlanError,
+} from './layout/slide-render-plan';
+export type {
+  ContentSlidePlanningInput,
+} from './layout/plan-content-slide';
+export type {
+  ContentSlideRenderPlan,
+  LayoutBox,
+  PlannedContentBlock,
+  PlannedImageElement,
+  PlannedTextElement,
+} from './layout/slide-render-plan';
+
 export type {
   LectureDocument,
   LectureSection,
