@@ -1,0 +1,66 @@
+name: Render-plan visual review
+
+on:
+  pull_request:
+    paths:
+      - 'artifacts/jang-pptx/**'
+      - '.github/workflows/render-plan-visual.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  render-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.17.1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify planner, renderer, and OOXML tests
+        run: |
+          pnpm typecheck:pptx
+          pnpm test:pptx
+          pnpm build:pptx
+
+      - name: Install headless rendering tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libreoffice poppler-utils
+
+      - name: Generate sample presentation
+        run: pnpm --filter @jang/pptx-engine sample
+
+      - name: Render PowerPoint through LibreOffice
+        run: |
+          mkdir -p visual-artifacts/png
+          libreoffice --headless --convert-to pdf \
+            --outdir visual-artifacts \
+            artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx
+          PDF_FILE="$(find visual-artifacts -maxdepth 1 -name '*.pdf' -print -quit)"
+          test -n "$PDF_FILE"
+          pdftoppm -png -r 120 "$PDF_FILE" visual-artifacts/png/slide
+          test "$(find visual-artifacts/png -name '*.png' | wc -l)" -gt 0
+
+      - name: Upload rendered review artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: immutable-render-plan-visual-review
+          path: |
+            artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx
+            visual-artifacts/*.pdf
+            visual-artifacts/png/*.png
+          if-no-files-found: error
+          retention-days: 14
