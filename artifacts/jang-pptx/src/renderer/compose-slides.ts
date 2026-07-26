@@ -4,6 +4,7 @@ import { ENDING_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
 import { planPresentation } from '../layout/plan-presentation';
+import { measureTextBoxHeight, ruleYAfterTitle } from '../layout/title-spacing';
 import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
@@ -28,14 +29,25 @@ function renderEnding(pptx: PptxGenJS, lecture: LectureDocument): void {
   addOrbitArtwork(slide, 9.12, 1.85, 3.55, 3.85);
   addEditorialHeader(slide, 'Discussion / next step', '', true);
 
-  slide.addText(richTextRuns(richTextToPlain(lecture.endNote) ? lecture.endNote : 'Questions and discussion'), {
-    x: CONTENT_X, y: ENDING_LAYOUT.TEXT_Y, w: 6.45, h: ENDING_LAYOUT.TEXT_H,
+  const endingText = richTextToPlain(lecture.endNote) ? lecture.endNote : 'Questions and discussion';
+  const endingHeight = measureTextBoxHeight(
+    endingText,
+    6.45,
+    30,
+    ENDING_LAYOUT.TEXT_H,
+    2.45,
+    0.05,
+  );
+  const underlineY = ruleYAfterTitle(ENDING_LAYOUT.TEXT_Y, endingHeight, 0.16);
+
+  slide.addText(richTextRuns(endingText), {
+    x: CONTENT_X, y: ENDING_LAYOUT.TEXT_Y, w: 6.45, h: endingHeight,
     fontFace: THEME.headingFont, fontSize: 30,
     bold: true, color: THEME.WHITE, margin: 0,
     align: 'left', valign: 'top', wrap: true, fit: 'shrink',
   });
   slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-    x: CONTENT_X, y: ENDING_LAYOUT.UNDERLINE_Y, w: 1.12, h: 0,
+    x: CONTENT_X, y: underlineY, w: 1.12, h: 0,
     line: { color: THEME.WHITE, width: 2 },
   });
   slide.addText(lecture.documentTitle, {
