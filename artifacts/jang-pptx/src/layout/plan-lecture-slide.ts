@@ -4,26 +4,19 @@ import type {
   ImageBlock,
   LectureBlock,
   LectureSlide,
-  TableBlock,
 } from '../schema/lecture-types';
 import { isDedicatedBlock } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
 import { createContentSlideRenderPlan } from './plan-content-slide';
+import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from './plan-table-slides';
 import { SlideRenderPlanError, type ContentSlideRenderPlan } from './slide-render-plan';
 import { splitContentBlock } from './split-content-block';
 
 export type PlannedLectureSlideFragment =
   | { type: 'content'; plan: ContentSlideRenderPlan }
   | { type: 'image'; block: ImageBlock }
-  | { type: 'dedicated-table'; block: TableBlock }
+  | { type: 'dedicated-table'; plan: DedicatedTableSlideRenderPlan }
   | { type: 'dedicated-diagram'; block: DiagramBlock };
-
-function dedicatedFragment(block: LectureBlock): PlannedLectureSlideFragment {
-  if (block.type === 'image') return { type: 'image', block };
-  if (block.type === 'table') return { type: 'dedicated-table', block };
-  if (block.type === 'diagram') return { type: 'dedicated-diagram', block };
-  throw new Error(`Unsupported dedicated block type: ${block.type}`);
-}
 
 function planningInput(
   slide: LectureSlide,
@@ -90,7 +83,17 @@ export function planLectureSlide(
 
   while (queue.length > 0) {
     if (isDedicatedBlock(queue[0])) {
-      output.push(dedicatedFragment(queue.shift()!));
+      const block = queue.shift()!;
+      if (block.type === 'image') {
+        output.push({ type: 'image', block });
+      } else if (block.type === 'table') {
+        output.push(...planDedicatedTableSlides(block, sectionTitle).map((plan) => ({
+          type: 'dedicated-table' as const,
+          plan,
+        })));
+      } else if (block.type === 'diagram') {
+        output.push({ type: 'dedicated-diagram', block });
+      }
       continue;
     }
 
