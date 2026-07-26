@@ -47,7 +47,23 @@ jobs:
         run: pnpm --dir artifacts/jang-pptx typecheck
 
       - name: Run complete source tests
-        run: pnpm --dir artifacts/jang-pptx test
+        id: source-tests
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          pnpm --dir artifacts/jang-pptx test -- --reporter=verbose 2>&1 | tee issue29-source-tests.log
+
+      - name: Upload source test diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue29-source-test-diagnostics
+          path: issue29-source-tests.log
+          if-no-files-found: error
+
+      - name: Stop on source test failure
+        if: steps.source-tests.outcome == 'failure'
+        run: exit 1
 
       - name: Build engine and demo
         run: pnpm --dir artifacts/jang-pptx build
