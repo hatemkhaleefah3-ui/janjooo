@@ -93,11 +93,10 @@ describe('dense hierarchical lecture layout', () => {
     }
   });
 
-  it('keeps final normal-slide utilization between 60% and 100%', () => {
+  it('preserves exact spacing instead of faking density on an inherently short topic', () => {
     const plan = createContentSlideRenderPlan([paragraph()], input);
-    expect(plan.naturalUtilization).toBeLessThan(plan.utilization);
-    expect(plan.utilization).toBeGreaterThanOrEqual(0.6 - 0.001);
-    expect(plan.utilization).toBeLessThanOrEqual(1 + 0.001);
+    expect(plan.utilization).toBeCloseTo(plan.naturalUtilization, 10);
+    expect(plan.utilization).toBeLessThan(0.6);
     expect(validateContentSlideRenderPlan(plan)).toEqual([]);
   });
 

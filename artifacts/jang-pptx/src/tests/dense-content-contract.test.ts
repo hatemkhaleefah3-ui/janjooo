@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { CONTENT_GAP, TITLE_RULE_GAP } from '../layout/title-spacing';
+import { THEME } from '../template/theme';
 import { collectOrderedTitleTerms } from '../schema/lecture-title-terms';
 import type { LectureDocument } from '../schema/lecture-types';
 
@@ -7,6 +8,8 @@ describe('dense content contract', () => {
   it('uses an exact two-pixel vertical rhythm', () => {
     expect(CONTENT_GAP).toBeCloseTo(2 / 96, 10);
     expect(TITLE_RULE_GAP).toBeCloseTo(2 / 96, 10);
+    expect(THEME.BLOCK_GAP).toBeCloseTo(2 / 96, 10);
+    expect(THEME.SUBTITLE_GAP).toBeCloseTo(2 / 96, 10);
   });
 
   it('collects all ordered titles without section titles or sub-titles', () => {

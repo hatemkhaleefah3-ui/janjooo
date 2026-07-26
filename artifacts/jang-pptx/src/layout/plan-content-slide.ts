@@ -60,7 +60,6 @@ export interface ContentHeadingMetrics {
 const TITLE_DEFINITION_GAP = CONTENT_GAP;
 const HEADING_SECTION_GAP = CONTENT_GAP;
 const SUBTITLE_DEFINITION_GAP = CONTENT_GAP;
-const MIN_CONTENT_UTILIZATION = 0.6;
 
 function plannedText(role: PlannedTextElement['role'], text: RichText, box: LayoutBox): PlannedTextElement {
   return { role, text, box };
@@ -303,43 +302,6 @@ function plannedBottom(plan: ContentSlideRenderPlan): number {
 }
 
 /**
- * Keeps inherently short pages above the 60% minimum without changing wording,
- * order, classification, or font size. Compaction remains the preferred way to
- * reach the approximately 90% target with real content.
- */
-function expandSparsePlan(plan: ContentSlideRenderPlan): void {
-  const targetBottom = plan.contentBounds.y + plan.contentBounds.h * MIN_CONTENT_UTILIZATION;
-  let currentBottom = plannedBottom(plan);
-  let extra = targetBottom - currentBottom;
-  if (extra <= 0.001) return;
-
-  if (plan.blocks.length >= 2) {
-    const step = extra / (plan.blocks.length - 1);
-    plan.blocks.forEach((item, index) => {
-      if (index === 0) return;
-      const shift = step * index;
-      item.box.y += shift;
-      if (item.textBox) item.textBox.y += shift;
-      if (item.ruleBox) item.ruleBox.y += shift;
-      if (item.definitionBox) item.definitionBox.y += shift;
-    });
-  } else if (plan.blocks.length === 1) {
-    plan.blocks[0].box.h += extra;
-  } else if (plan.companion) {
-    plan.companion.box.h += extra;
-  } else if (plan.imageCompanionDescription) {
-    plan.imageCompanionDescription.box.h += extra;
-  }
-
-  currentBottom = plannedBottom(plan);
-  extra = targetBottom - currentBottom;
-  if (extra <= 0.001) return;
-  if (plan.blocks.length > 0) plan.blocks[plan.blocks.length - 1].box.h += extra;
-  else if (plan.companion) plan.companion.box.h += extra;
-  else if (plan.imageCompanionDescription) plan.imageCompanionDescription.box.h += extra;
-}
-
-/**
  * Converts one already-selected content page into one immutable physical plan.
  * The right side is reserved only for an image or a supported table companion;
  * lists and notes remain in the normal left reading flow.
@@ -454,9 +416,10 @@ export function createContentSlideRenderPlan(
 
   const naturalBottom = plannedBottom(plan);
   plan.naturalUtilization = Math.max(0, (naturalBottom - contentStartY) / Math.max(0.01, plan.contentBounds.h));
-  expandSparsePlan(plan);
-  const finalBottom = plannedBottom(plan);
-  plan.utilization = Math.max(0, (finalBottom - contentStartY) / Math.max(0.01, plan.contentBounds.h));
+  // Never fake density by stretching gaps or text boxes. Compaction and the
+  // extraction contract create real content density; quality checks flag any
+  // remaining sparse page while the exact two-pixel rhythm remains intact.
+  plan.utilization = plan.naturalUtilization;
 
   assertValidContentSlideRenderPlan(plan);
   return plan;
