@@ -13,7 +13,9 @@ function planningInput() {
     sourceSlideId: 'source-slide',
     pageIndex: 0,
     slideTitle: 'Amino acid metabolism',
+    titleDefinition: 'A focused definition that explains the title across two to three readable lines.',
     slideSubtitle: 'Integrated teaching content and image evidence',
+    subtitleDefinition: 'The related evidence and teaching details shown beneath the title.',
     isFirstPage: true,
     sectionTitle: 'Metabolic functions',
   } as const;
@@ -57,7 +59,9 @@ describe('immutable content slide render plan', () => {
       plan.contentBounds,
       plan.title?.box,
       plan.titleRule?.box,
+      plan.titleDefinition?.box,
       plan.subtitle?.box,
+      plan.subtitleDefinition?.box,
       ...plan.blocks.map((item) => item.box),
       plan.image?.box,
       plan.image?.label?.box,
@@ -67,7 +71,7 @@ describe('immutable content slide render plan', () => {
     expect(boxes.every((box) => bottom(box) <= SAFE_BOTTOM + 0.001)).toBe(true);
   });
 
-  it('moves the title rule subtitle and body below a wrapped slide title', () => {
+  it('moves the rule definitions subtitle and body below a wrapped slide title', () => {
     const plan = createContentSlideRenderPlan(mixedBlocks(), {
       ...planningInput(),
       slideTitle: 'Biosynthesis of specialized products from tyrosine and their clinical significance',
@@ -75,11 +79,13 @@ describe('immutable content slide render plan', () => {
 
     expect(plan.title).toBeDefined();
     expect(plan.titleRule).toBeDefined();
+    expect(plan.titleDefinition).toBeDefined();
     expect(plan.subtitle).toBeDefined();
     expect(plan.title!.box.h).toBeGreaterThan(THEME.TITLE_HEIGHT);
-    expect(plan.titleRule!.box.y - bottom(plan.title!.box)).toBeCloseTo(3 / 96, 8);
-    expect(plan.subtitle!.box.y).toBeGreaterThan(plan.titleRule!.box.y);
-    expect(plan.blocks[0].box.y).toBeGreaterThanOrEqual(bottom(plan.subtitle!.box));
+    expect(plan.titleRule!.box.y - bottom(plan.title!.box)).toBeCloseTo(2 / 96, 8);
+    expect(plan.titleDefinition!.box.y - plan.titleRule!.box.y).toBeCloseTo(2 / 96, 8);
+    expect(plan.subtitle!.box.y).toBeGreaterThan(plan.titleDefinition!.box.y);
+    expect(plan.blocks[0].box.y).toBeGreaterThanOrEqual(bottom(plan.subtitleDefinition!.box));
     expect(validateContentSlideRenderPlan(plan)).toEqual([]);
   });
 
