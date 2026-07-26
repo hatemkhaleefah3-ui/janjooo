@@ -18,6 +18,7 @@ export type { JangTheme, ThemeOverrides } from './template/theme';
 
 export { createContentSlideRenderPlan } from './layout/plan-content-slide';
 export { planLectureSlide } from './layout/plan-lecture-slide';
+export { planPresentation } from './layout/plan-presentation';
 export { planDedicatedImageSlide } from './layout/plan-image-slide';
 export { planDedicatedTableSlides } from './layout/plan-table-slides';
 export { planDedicatedDiagramSlides } from './layout/plan-diagram-slides';
@@ -32,6 +33,10 @@ export type {
 export type {
   PlannedLectureSlideFragment,
 } from './layout/plan-lecture-slide';
+export type {
+  PresentationRenderPlan,
+  PresentationSlidePlan,
+} from './layout/plan-presentation';
 export type {
   DedicatedImageSlideRenderPlan,
 } from './layout/plan-image-slide';
