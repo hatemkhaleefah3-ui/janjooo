@@ -1,0 +1,81 @@
+name: Verify final dense image geometry
+
+on:
+  push:
+    branches: [feature/dense-content-spacing]
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/dense-content-spacing
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Enable pnpm
+        run: corepack enable
+      - name: Apply geometry fix
+        run: node scripts/relax-dense-image-minimum.mjs
+      - name: Install
+        run: pnpm install --frozen-lockfile
+      - name: Typecheck
+        run: pnpm --dir artifacts/jang-pptx typecheck
+      - name: Test
+        run: pnpm --dir artifacts/jang-pptx test
+      - name: Build library and samples
+        run: |
+          pnpm --dir artifacts/jang-pptx build:lib
+          pnpm --dir artifacts/jang-pptx sample
+          pnpm --dir artifacts/jang-pptx inspect:sample
+      - name: Build standalone browser engine
+        run: |
+          cat > artifacts/jang-pptx/vite.standalone.config.ts <<'EOF'
+          import path from 'node:path';
+          import { fileURLToPath } from 'node:url';
+          import { defineConfig } from 'vite';
+          const root = path.dirname(fileURLToPath(import.meta.url));
+          export default defineConfig({
+            publicDir: false,
+            build: {
+              lib: {
+                entry: path.resolve(root, 'src/index.ts'),
+                formats: ['es'],
+                fileName: () => 'pptx-engine.js',
+              },
+              outDir: path.resolve(root, 'standalone'),
+              emptyOutDir: true,
+              sourcemap: false,
+              minify: 'esbuild',
+              rollupOptions: { output: { inlineDynamicImports: true } },
+            },
+          });
+          EOF
+          pnpm --dir artifacts/jang-pptx exec vite build --config vite.standalone.config.ts
+          rm artifacts/jang-pptx/vite.standalone.config.ts
+      - name: Record success
+        run: |
+          cat > artifacts/jang-pptx/validation/dense-contract-status.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "overall": "success",
+            "install": 0,
+            "typecheck": 0,
+            "tests": 0,
+            "library": 0,
+            "sample": 0,
+            "inspect": 0,
+            "standalone": 0
+          }
+          EOF
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Pass final dense content engine validation"
+          git push origin HEAD:feature/dense-content-spacing
