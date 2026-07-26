@@ -1,0 +1,11 @@
+{
+  "commit": "a06bd20e45e80e400f874d8b1570a2ce4cf4c1fe",
+  "overall": "failure",
+  "install": 0,
+  "typecheck": 0,
+  "tests": 1,
+  "library": 0,
+  "sample": 0,
+  "inspect": 0,
+  "standalone": 0
+}

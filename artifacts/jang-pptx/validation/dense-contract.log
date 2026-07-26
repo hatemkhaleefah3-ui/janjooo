@@ -1,0 +1,317 @@
+## install
+! Corepack is about to download https://registry.npmjs.org/pnpm/-/pnpm-10.17.1.tgz
+Scope: all 9 workspace projects
+Lockfile is up to date, resolution step is skipped
+Progress: resolved 1, reused 0, downloaded 0, added 0
+Packages: +545
+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+Progress: resolved 545, reused 0, downloaded 249, added 236
+Progress: resolved 545, reused 0, downloaded 385, added 381
+Progress: resolved 545, reused 0, downloaded 425, added 394
+Progress: resolved 545, reused 0, downloaded 545, added 545, done
+.../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
+.../esbuild@0.27.3/node_modules/esbuild postinstall: Done
+
+dependencies:
++ @replit/connectors-sdk 0.4.1
+
+devDependencies:
++ prettier 3.9.5
++ typescript 5.9.3
+
+. preinstall$ sh -c 'rm -f package-lock.json yarn.lock; case "$npm_config_user_agent" in pnpm/*) ;; *) echo "Use pnpm instead" >&2; exit 1 ;; esac'
+. preinstall: Done
+Done in 5.8s using pnpm v10.17.1
+install=0
+## typecheck
+
+> @jang/pptx-engine@1.0.0 typecheck /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> pnpm typecheck:lib && pnpm typecheck:demo
+
+
+> @jang/pptx-engine@1.0.0 typecheck:lib /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> tsc -p tsconfig.typecheck.json
+
+
+> @jang/pptx-engine@1.0.0 typecheck:demo /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> tsc -p tsconfig.demo.json
+
+typecheck=0
+## tests
+
+> @jang/pptx-engine@1.0.0 test /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> vitest run --config vitest.config.ts
+
+
+[1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/janjooo/janjooo/artifacts/jang-pptx[39m
+
+ [31m❯[39m src/tests/pagination.test.ts [2m([22m[2m14 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 26[2mms[22m[39m
+     [32m✓[39m routes a wide table and large diagram to dedicated renderers; only full-slide images are always dedicated[32m 1[2mms[22m[39m
+     [32m✓[39m splits a long paragraph without losing or reordering characters[32m 3[2mms[22m[39m
+     [32m✓[39m continues numbered lists with the correct starting number[32m 2[2mms[22m[39m
+     [32m✓[39m creates real inline table continuations with every source row[32m 1[2mms[22m[39m
+     [32m✓[39m keeps the title and subtitle reserve for every fit decision on the first content page[32m 0[2mms[22m[39m
+     [32m✓[39m keeps a non-full image on the same content page as its related text[32m 3[2mms[22m[39m
+     [32m✓[39m keeps a lone non-full image as a content fragment so its label can accompany the placeholder[32m 0[2mms[22m[39m
+     [32m✓[39m still routes a full-slide image straight to a dedicated fragment even with companion text[32m 0[2mms[22m[39m
+     [32m✓[39m breaks the page rather than mixing two images into one two-column layout[32m 1[2mms[22m[39m
+[31m     [31m×[31m reflows text when a later image narrows the page instead of producing geometry overflow[39m[32m 9[2mms[22m[39m
+     [32m✓[39m splits a long paragraph and preserves every character[32m 2[2mms[22m[39m
+     [32m✓[39m splits long bullet lists without dropping or reordering items[32m 1[2mms[22m[39m
+     [32m✓[39m continues numbered-list numbering across slides[32m 2[2mms[22m[39m
+     [32m✓[39m splits a tall inline table into real continuation blocks[32m 0[2mms[22m[39m
+ [32m✓[39m src/tests/schema.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 16[2mms[22m[39m
+ [31m❯[39m src/tests/hierarchical-layout.test.ts [2m([22m[2m9 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 21[2mms[22m[39m
+     [32m✓[39m places every title rule exactly two pixels below the measured last title line[32m 3[2mms[22m[39m
+     [32m✓[39m keeps lists and notes in the left flow unless an image or supported table is present[32m 1[2mms[22m[39m
+     [32m✓[39m uses the full content width for list-only and note-only continuation pages[32m 1[2mms[22m[39m
+     [32m✓[39m keeps final normal-slide utilization between 60% and 100%[32m 1[2mms[22m[39m
+[31m     [31m×[31m starts a new physical slide for a title after more than 90% prior use[39m[32m 8[2mms[22m[39m
+     [32m✓[39m allows a title to remain mid-slide at 90% or less prior use[32m 1[2mms[22m[39m
+     [32m✓[39m forces overview key terms to every ordered title, excluding sections and sub-titles[32m 1[2mms[22m[39m
+     [32m✓[39m crops photos to fill but protects information-bearing figures[32m 0[2mms[22m[39m
+     [32m✓[39m renders definitions, colored bands, and left-flow lists without overflow[32m 4[2mms[22m[39m
+ [31m❯[39m src/tests/plan-lecture-slide.test.ts [2m([22m[2m5 tests[22m[2m | [22m[31m3 failed[39m[2m)[22m[32m 16[2mms[22m[39m
+[31m     [31m×[31m makes complete immutable plans the authority for page boundaries[39m[32m 8[2mms[22m[39m
+     [32m✓[39m preserves every paragraph character across semantic continuations[32m 1[2mms[22m[39m
+[31m     [31m×[31m rebalances trailing text so an inline image is never a sparse image-only continuation[39m[32m 2[2mms[22m[39m
+[31m     [31m×[31m keeps at most one inline image in each planned content page[39m[32m 2[2mms[22m[39m
+     [32m✓[39m keeps full images, wide tables, and large diagrams on specialized renderers[32m 1[2mms[22m[39m
+ [32m✓[39m src/tests/slide-quality.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/tests/regression-amino-acid-metabolism.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 95[2mms[22m[39m
+ [31m❯[39m src/tests/slide-render-plan.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m4 failed[39m[2m)[22m[32m 17[2mms[22m[39m
+[31m     [31m×[31m preserves the approved editorial layout while owning every content box[39m[32m 10[2mms[22m[39m
+[31m     [31m×[31m moves the rule definitions subtitle and body below a wrapped slide title[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m renders the exact plan without introducing geometry overflow[39m[32m 1[2mms[22m[39m
+[31m     [31m×[31m rejects a plan whose physical box crosses the safe content boundary[39m[32m 4[2mms[22m[39m
+ [32m✓[39m src/tests/compact-slides.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 6[2mms[22m[39m
+ [32m✓[39m src/tests/pptx-generation.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 112[2mms[22m[39m
+ [32m✓[39m src/tests/image-layout.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/tests/ooxml.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 55[2mms[22m[39m
+ [32m✓[39m src/tests/table-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/tests/geometry-overflow-regression.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/tests/diagram-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
+ [32m✓[39m src/tests/dense-content-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/tests/image-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/tests/presentation-render-plan.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/tests/import-files.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/tests/diagram-layout.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/tests/rich-text.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/tests/design-theme.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 33[2mms[22m[39m
+ [32m✓[39m src/tests/table-layout.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+ [32m✓[39m src/tests/geometry-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 3[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 9 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/tests/hierarchical-layout.test.ts[2m > [22mdense hierarchical lecture layout[2m > [22mstarts a new physical slide for a title after more than 90% prior use
+[31m[1mAssertionError[22m: expected 'paragraph' to be 'title' // Object.is equality[39m
+
+Expected: [32m"title"[39m
+Received: [31m"paragraph"[39m
+
+[36m [2m❯[22m src/tests/hierarchical-layout.test.ts:[2m118:61[22m[39m
+    [90m116|[39m     [34mexpect[39m(titlePlanIndex)[33m.[39m[34mtoBeGreaterThan[39m([34m0[39m)[33m;[39m
+    [90m117|[39m     expect(plans[titlePlanIndex - 1].plan.naturalUtilization).toBeGrea…
+    [90m118|[39m     expect(plans[titlePlanIndex].plan.blocks[0].block.type).toBe('titl…
+    [90m   |[39m                                                             [31m^[39m
+    [90m119|[39m   })[33m;[39m
+    [90m120|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/pagination.test.ts[2m > [22mimage mixing (issue #22)[2m > [22mreflows text when a later image narrows the page instead of producing geometry overflow
+[31m[1mAssertionError[22m: expected 1 to be greater than 1[39m
+[36m [2m❯[22m src/tests/pagination.test.ts:[2m144:30[22m[39m
+    [90m142|[39m     ])[33m;[39m
+    [90m143|[39m     [35mconst[39m fragments [33m=[39m [34mpaginateContent[39m(slide)[33m;[39m
+    [90m144|[39m     [34mexpect[39m(fragments[33m.[39mlength)[33m.[39m[34mtoBeGreaterThan[39m([34m1[39m)[33m;[39m
+    [90m   |[39m                              [31m^[39m
+    [90m145|[39m     [34mexpectContentFragmentsFit[39m(slide[33m,[39m fragments)[33m;[39m
+    [90m146|[39m   })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/plan-lecture-slide.test.ts[2m > [22mplanLectureSlide[2m > [22mmakes complete immutable plans the authority for page boundaries
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- Block interpretation (paragraph) could not be split into a valid physical page.[39m
+[36m [2m❯[22m planLectureSlide src/layout/plan-lecture-slide.ts:[2m266:15[22m[39m
+    [90m264|[39m       )[33m;[39m
+    [90m265|[39m       [35mif[39m ([33m![39msplit) {
+    [90m266|[39m         [35mthrow[39m [35mnew[39m [33mSlideRenderPlanError[39m([
+    [90m   |[39m               [31m^[39m
+    [90m267|[39m           `Block ${next.blockId} (${next.type}) could not be split int…
+    [90m268|[39m         ])[33m;[39m
+[90m [2m❯[22m src/tests/plan-lecture-slide.test.ts:[2m34:23[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/plan-lecture-slide.test.ts[2m > [22mplanLectureSlide[2m > [22mrebalances trailing text so an inline image is never a sparse image-only continuation
+[31m[1mAssertionError[22m: expected 0 to be greater than 0[39m
+[36m [2m❯[22m src/tests/plan-lecture-slide.test.ts:[2m97:38[22m[39m
+    [90m 95|[39m     const imagePlan = contentPlans.find((plan) => plan.image?.block.sl…
+    [90m 96|[39m     [34mexpect[39m(imagePlan)[33m.[39m[34mtoBeDefined[39m()[33m;[39m
+    [90m 97|[39m     [34mexpect[39m(imagePlan[33m?.[39mblocks[33m.[39mlength)[33m.[39m[34mtoBeGreaterThan[39m([34m0[39m)[33m;[39m
+    [90m   |[39m                                      [31m^[39m
+    [90m 98|[39m     expect(imagePlan?.blocks.reduce((sum, item) => sum + item.box.h, 0…
+    [90m 99|[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/plan-lecture-slide.test.ts[2m > [22mplanLectureSlide[2m > [22mkeeps at most one inline image in each planned content page
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- Block text-a (paragraph) could not be split into a valid physical page.[39m
+[36m [2m❯[22m planLectureSlide src/layout/plan-lecture-slide.ts:[2m266:15[22m[39m
+    [90m264|[39m       )[33m;[39m
+    [90m265|[39m       [35mif[39m ([33m![39msplit) {
+    [90m266|[39m         [35mthrow[39m [35mnew[39m [33mSlideRenderPlanError[39m([
+    [90m   |[39m               [31m^[39m
+    [90m267|[39m           `Block ${next.blockId} (${next.type}) could not be split int…
+    [90m268|[39m         ])[33m;[39m
+[90m [2m❯[22m src/tests/plan-lecture-slide.test.ts:[2m109:23[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/slide-render-plan.test.ts[2m > [22mimmutable content slide render plan[2m > [22mpreserves the approved editorial layout while owning every content box
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- image source bottom=6.662 exceeds safe bottom 6.62.
+- Content utilization 1.013 is outside the required 0.60–1.00 range.[39m
+[36m [2m❯[22m assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:[2m200:36[22m[39m
+    [90m198|[39m export function assertValidContentSlideRenderPlan(plan: ContentSlideRe…
+    [90m199|[39m   [35mconst[39m violations [33m=[39m [34mvalidateContentSlideRenderPlan[39m(plan)[33m;[39m
+    [90m200|[39m   if (violations.length > 0) throw new SlideRenderPlanError(violations…
+    [90m   |[39m                                    [31m^[39m
+    [90m201|[39m }
+    [90m202|[39m
+[90m [2m❯[22m createContentSlideRenderPlan src/layout/plan-content-slide.ts:[2m461:3[22m[39m
+[90m [2m❯[22m src/tests/slide-render-plan.test.ts:[2m49:18[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/slide-render-plan.test.ts[2m > [22mimmutable content slide render plan[2m > [22mmoves the rule definitions subtitle and body below a wrapped slide title
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- image source bottom=6.662 exceeds safe bottom 6.62.
+- Content utilization 1.018 is outside the required 0.60–1.00 range.[39m
+[36m [2m❯[22m assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:[2m200:36[22m[39m
+    [90m198|[39m export function assertValidContentSlideRenderPlan(plan: ContentSlideRe…
+    [90m199|[39m   [35mconst[39m violations [33m=[39m [34mvalidateContentSlideRenderPlan[39m(plan)[33m;[39m
+    [90m200|[39m   if (violations.length > 0) throw new SlideRenderPlanError(violations…
+    [90m   |[39m                                    [31m^[39m
+    [90m201|[39m }
+    [90m202|[39m
+[90m [2m❯[22m createContentSlideRenderPlan src/layout/plan-content-slide.ts:[2m461:3[22m[39m
+[90m [2m❯[22m src/tests/slide-render-plan.test.ts:[2m75:18[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/slide-render-plan.test.ts[2m > [22mimmutable content slide render plan[2m > [22mrenders the exact plan without introducing geometry overflow
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- image source bottom=6.662 exceeds safe bottom 6.62.
+- Content utilization 1.013 is outside the required 0.60–1.00 range.[39m
+[36m [2m❯[22m assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:[2m200:36[22m[39m
+    [90m198|[39m export function assertValidContentSlideRenderPlan(plan: ContentSlideRe…
+    [90m199|[39m   [35mconst[39m violations [33m=[39m [34mvalidateContentSlideRenderPlan[39m(plan)[33m;[39m
+    [90m200|[39m   if (violations.length > 0) throw new SlideRenderPlanError(violations…
+    [90m   |[39m                                    [31m^[39m
+    [90m201|[39m }
+    [90m202|[39m
+[90m [2m❯[22m createContentSlideRenderPlan src/layout/plan-content-slide.ts:[2m461:3[22m[39m
+[90m [2m❯[22m src/tests/slide-render-plan.test.ts:[2m93:18[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/9]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/tests/slide-render-plan.test.ts[2m > [22mimmutable content slide render plan[2m > [22mrejects a plan whose physical box crosses the safe content boundary
+[31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
+- image source bottom=6.662 exceeds safe bottom 6.62.
+- Content utilization 1.013 is outside the required 0.60–1.00 range.[39m
+[36m [2m❯[22m assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:[2m200:36[22m[39m
+    [90m198|[39m export function assertValidContentSlideRenderPlan(plan: ContentSlideRe…
+    [90m199|[39m   [35mconst[39m violations [33m=[39m [34mvalidateContentSlideRenderPlan[39m(plan)[33m;[39m
+    [90m200|[39m   if (violations.length > 0) throw new SlideRenderPlanError(violations…
+    [90m   |[39m                                    [31m^[39m
+    [90m201|[39m }
+    [90m202|[39m
+[90m [2m❯[22m createContentSlideRenderPlan src/layout/plan-content-slide.ts:[2m461:3[22m[39m
+[90m [2m❯[22m src/tests/slide-render-plan.test.ts:[2m107:18[22m[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/9]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m4 failed[39m[22m[2m | [22m[1m[32m19 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[31m9 failed[39m[22m[2m | [22m[1m[32m86 passed[39m[22m[90m (95)[39m
+[2m   Start at [22m 15:48:51
+[2m   Duration [22m 1.98s[2m (transform 884ms, setup 0ms, import 2.79s, tests 495ms, environment 2ms)[22m
+
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/tests/hierarchical-layout.test.ts,title=src/tests/hierarchical-layout.test.ts > dense hierarchical lecture layout > starts a new physical slide for a title after more than 90%25 prior use,line=118,column=61::AssertionError: expected 'paragraph' to be 'title' // Object.is equality%0A%0AExpected: "title"%0AReceived: "paragraph"%0A%0A ❯ src/tests/hierarchical-layout.test.ts:118:61%0A%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/tests/pagination.test.ts,title=src/tests/pagination.test.ts > image mixing (issue #22) > reflows text when a later image narrows the page instead of producing geometry overflow,line=144,column=30::AssertionError: expected 1 to be greater than 1%0A ❯ src/tests/pagination.test.ts:144:30%0A%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/plan-lecture-slide.ts,title=src/tests/plan-lecture-slide.test.ts > planLectureSlide > makes complete immutable plans the authority for page boundaries,line=266,column=15::SlideRenderPlanError: Slide render plan is invalid:%0A- Block interpretation (paragraph) could not be split into a valid physical page.%0A ❯ planLectureSlide src/layout/plan-lecture-slide.ts:266:15%0A ❯ src/tests/plan-lecture-slide.test.ts:34:23%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'Block interpretation (paragraph) could not be split into a valid physical page.' ] }%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/tests/plan-lecture-slide.test.ts,title=src/tests/plan-lecture-slide.test.ts > planLectureSlide > rebalances trailing text so an inline image is never a sparse image-only continuation,line=97,column=38::AssertionError: expected 0 to be greater than 0%0A ❯ src/tests/plan-lecture-slide.test.ts:97:38%0A%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/plan-lecture-slide.ts,title=src/tests/plan-lecture-slide.test.ts > planLectureSlide > keeps at most one inline image in each planned content page,line=266,column=15::SlideRenderPlanError: Slide render plan is invalid:%0A- Block text-a (paragraph) could not be split into a valid physical page.%0A ❯ planLectureSlide src/layout/plan-lecture-slide.ts:266:15%0A ❯ src/tests/plan-lecture-slide.test.ts:109:23%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'Block text-a (paragraph) could not be split into a valid physical page.' ] }%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/slide-render-plan.ts,title=src/tests/slide-render-plan.test.ts > immutable content slide render plan > preserves the approved editorial layout while owning every content box,line=200,column=36::SlideRenderPlanError: Slide render plan is invalid:%0A- image source bottom=6.662 exceeds safe bottom 6.62.%0A- Content utilization 1.013 is outside the required 0.60–1.00 range.%0A ❯ assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:200:36%0A ❯ createContentSlideRenderPlan src/layout/plan-content-slide.ts:461:3%0A ❯ src/tests/slide-render-plan.test.ts:49:18%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'image source bottom=6.662 exceeds safe bottom 6.62.', 'Content utilization 1.013 is outside the required 0.60–1.00 range.' ] }%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/slide-render-plan.ts,title=src/tests/slide-render-plan.test.ts > immutable content slide render plan > moves the rule definitions subtitle and body below a wrapped slide title,line=200,column=36::SlideRenderPlanError: Slide render plan is invalid:%0A- image source bottom=6.662 exceeds safe bottom 6.62.%0A- Content utilization 1.018 is outside the required 0.60–1.00 range.%0A ❯ assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:200:36%0A ❯ createContentSlideRenderPlan src/layout/plan-content-slide.ts:461:3%0A ❯ src/tests/slide-render-plan.test.ts:75:18%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'image source bottom=6.662 exceeds safe bottom 6.62.', 'Content utilization 1.018 is outside the required 0.60–1.00 range.' ] }%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/slide-render-plan.ts,title=src/tests/slide-render-plan.test.ts > immutable content slide render plan > renders the exact plan without introducing geometry overflow,line=200,column=36::SlideRenderPlanError: Slide render plan is invalid:%0A- image source bottom=6.662 exceeds safe bottom 6.62.%0A- Content utilization 1.013 is outside the required 0.60–1.00 range.%0A ❯ assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:200:36%0A ❯ createContentSlideRenderPlan src/layout/plan-content-slide.ts:461:3%0A ❯ src/tests/slide-render-plan.test.ts:93:18%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'image source bottom=6.662 exceeds safe bottom 6.62.', 'Content utilization 1.013 is outside the required 0.60–1.00 range.' ] }%0A
+
+::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/slide-render-plan.ts,title=src/tests/slide-render-plan.test.ts > immutable content slide render plan > rejects a plan whose physical box crosses the safe content boundary,line=200,column=36::SlideRenderPlanError: Slide render plan is invalid:%0A- image source bottom=6.662 exceeds safe bottom 6.62.%0A- Content utilization 1.013 is outside the required 0.60–1.00 range.%0A ❯ assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:200:36%0A ❯ createContentSlideRenderPlan src/layout/plan-content-slide.ts:461:3%0A ❯ src/tests/slide-render-plan.test.ts:107:18%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'image source bottom=6.662 exceeds safe bottom 6.62.', 'Content utilization 1.013 is outside the required 0.60–1.00 range.' ] }%0A
+ ELIFECYCLE  Test failed. See above for more details.
+tests=1
+## library
+
+> @jang/pptx-engine@1.0.0 build:lib /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> vite build --config vite.lib.config.ts
+
+[36mvite v7.3.6 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 33 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mdist/[22m[36mindex.js  [39m[1m[2m90.67 kB[22m[1m[22m[2m │ gzip: 22.80 kB[22m[2m │ map: 271.41 kB[22m
+[32m✓ built in 284ms[39m
+library=0
+## sample
+
+> @jang/pptx-engine@1.0.0 sample /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> node scripts/generate-sample.mjs
+
+{
+  "outputPath": "/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx",
+  "slideCount": 7,
+  "warnings": []
+}
+sample=0
+## inspect
+
+> @jang/pptx-engine@1.0.0 inspect:sample /home/runner/work/janjooo/janjooo/artifacts/jang-pptx
+> node scripts/inspect-pptx.mjs generated/jang-pptx-engine-sample.pptx
+
+{
+  "input": "/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/generated/jang-pptx-engine-sample.pptx",
+  "bytes": 170098,
+  "slideCount": 7,
+  "widthInches": 13.33,
+  "heightInches": 7.5,
+  "checks": {
+    "editableText": true,
+    "nativeBullets": true,
+    "nativeNumbering": true,
+    "editableTable": true,
+    "editableArrowLine": true,
+    "embeddedPicture": true
+  }
+}
+inspect=0
+## standalone
+[36mvite v7.3.6 [32mbuilding client environment for production...[36m[39m
+transforming...
+[32m✓[39m 181 modules transformed.
+rendering chunks...
+computing gzip size...
+[2mstandalone/[22m[36mpptx-engine.js  [39m[1m[33m726.05 kB[39m[22m[2m │ gzip: 203.47 kB[22m
+[32m✓ built in 1.22s[39m
+standalone=0
