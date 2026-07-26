@@ -10,7 +10,7 @@ import { renderSection } from './render-section';
 import { renderContentSlide } from './render-content-slide';
 import { renderImageSlide } from './render-image';
 import { renderDedicatedTableSlide } from './render-table';
-import { renderDedicatedDiagramSlides } from './render-diagram';
+import { renderDedicatedDiagramSlide } from './render-diagram';
 import { compactSectionSlides } from './compact-slides';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
@@ -80,7 +80,7 @@ export function composeSlides(
             renderDedicatedTableSlide(pptx, fragment.plan);
             break;
           case 'dedicated-diagram':
-            renderDedicatedDiagramSlides(pptx, fragment.block, section.sectionTitle);
+            renderDedicatedDiagramSlide(pptx, fragment.plan);
             break;
         }
       }
