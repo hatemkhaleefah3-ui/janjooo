@@ -1,10 +1,31 @@
 import { describe, expect, it } from 'vitest';
-import { paginateContent, isDedicatedBlock } from '../renderer/paginate-content';
+import { estimateBlockHeight, paginateContent, isDedicatedBlock } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
+import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type { LectureBlock, LectureSlide } from '../schema/lecture-types';
 
 function makeSlide(blocks: LectureBlock[]): LectureSlide {
   return { slideId: 'slide', slideTitle: 'A title', slideSubtitle: 'A subtitle', sourceReferences: [], blocks };
+}
+
+function expectContentFragmentsFit(slide: LectureSlide, fragments: ReturnType<typeof paginateContent>): void {
+  let contentPageIndex = 0;
+  for (const fragment of fragments) {
+    if (fragment.type !== 'content') continue;
+    const first = contentPageIndex === 0;
+    const hasTitle = first && slide.slideTitle.trim().length > 0;
+    const hasSubtitle = first && richTextToPlain(slide.slideSubtitle).trim().length > 0;
+    const available = Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle) - 0.55);
+    const width = fragment.blocks.some((block) => block.type === 'image')
+      ? TEXT_WIDTH_WITH_IMAGE
+      : CONTENT_WIDTH;
+    const used = fragment.blocks.reduce(
+      (sum, block) => sum + estimateBlockHeight(block, width),
+      0,
+    );
+    expect(used).toBeLessThanOrEqual(available + 0.001);
+    contentPageIndex += 1;
+  }
 }
 
 describe('deterministic pagination', () => {
@@ -47,6 +68,17 @@ describe('deterministic pagination', () => {
     expect(tables.length).toBeGreaterThan(1);
     expect(tables.flatMap((table) => table.rows)).toEqual(rows);
   });
+
+  it('keeps the title and subtitle reserve for every fit decision on the first content page', () => {
+    const paragraph = 'alpha beta '.repeat(40);
+    const slide = makeSlide([
+      { blockId: 'p1', type: 'paragraph', text: paragraph, sourceReferences: [] },
+      { blockId: 'p2', type: 'paragraph', text: paragraph, sourceReferences: [] },
+    ]);
+    const fragments = paginateContent(slide);
+    expect(fragments.length).toBeGreaterThan(1);
+    expectContentFragmentsFit(slide, fragments);
+  });
 });
 
 describe('image mixing (issue #22)', () => {
@@ -85,6 +117,32 @@ describe('image mixing (issue #22)', () => {
     expect(fragments.length).toBeGreaterThanOrEqual(2);
     const firstContent = fragments.find((f) => f.type === 'content');
     expect(firstContent && firstContent.type === 'content' && firstContent.blocks.filter((b) => b.type === 'image')).toHaveLength(1);
+  });
+
+  it('reflows text when a later image narrows the page instead of producing geometry overflow', () => {
+    const slide = makeSlide([
+      {
+        blockId: 'late-image-text',
+        type: 'paragraph',
+        text: 'alpha beta '.repeat(50),
+        sourceReferences: [],
+      },
+      {
+        blockId: 'late-image',
+        type: 'image',
+        slotId: 'slot-late',
+        label: 'Late image',
+        description: 'The image appears after the paragraph in source order.',
+        important: true,
+        sourceReference: 'p1',
+        fit: 'contain',
+        preferredAspect: 'wide',
+        sourceReferences: [],
+      },
+    ]);
+    const fragments = paginateContent(slide);
+    expect(fragments.length).toBeGreaterThan(1);
+    expectContentFragmentsFit(slide, fragments);
   });
 });
 
