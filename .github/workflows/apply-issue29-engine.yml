@@ -26,6 +26,9 @@ jobs:
           cat .github/issue29/chunks/chunk* | base64 -d | xz -d > /tmp/issue29.patch
           git apply --check /tmp/issue29.patch
           git apply /tmp/issue29.patch
+          base64 -d .github/issue29/fix.patch.xz.b64 | xz -d > /tmp/issue29-fix.patch
+          git apply --check /tmp/issue29-fix.patch
+          git apply /tmp/issue29-fix.patch
           rm -rf .github/issue29
           rm -f .github/workflows/export-hierarchical-source.yml
           rm -f .github/workflows/apply-issue29-engine.yml
