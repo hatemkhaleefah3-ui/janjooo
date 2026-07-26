@@ -1,7 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
-import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
+import { planDedicatedImageSlide, type DedicatedImageSlideRenderPlan } from '../layout/plan-image-slide';
 import { extractIntrinsicImageSize, fitImageContain, fitImageCover, isUsableImageDataUrl } from './image-sizing';
 import type { ImageBlock, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
@@ -10,9 +10,8 @@ export interface ImageRenderResult { rendered: boolean; warnings: string[]; }
 
 /**
  * Renders an image (or its placeholder) into an arbitrary rectangular area.
- * Shared by the dedicated full-slide image renderer and the inline
- * two-column mixed layout so both stay pixel-for-pixel consistent about
- * fit/contain/cover behaviour, intrinsic sizing, and placeholder appearance.
+ * Shared by dedicated and mixed layouts. Imported bytes affect only painting
+ * inside this immutable area; they never alter pagination or surrounding text.
  */
 export function paintImageIntoArea(
   slide: PptxGenJS.Slide,
@@ -59,65 +58,109 @@ export function paintImageIntoArea(
   return { rendered, warnings };
 }
 
+/** Renders the approved image-evidence design from an immutable physical plan. */
+export function renderDedicatedImageSlide(
+  pptx: PptxGenJS,
+  plan: DedicatedImageSlideRenderPlan,
+  importedImages: Record<string, ImportedImage>,
+): ImageRenderResult {
+  const slide = pptx.addSlide();
+  slide.background = { color: THEME.SLIDE_BG };
+  addEditorialHeader(slide, 'Image evidence', plan.sectionTitle);
+
+  slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, {
+    ...plan.frameBox,
+    rectRadius: 0.06,
+    fill: { color: THEME.WHITE },
+    line: { color: THEME.DIVIDER_COLOR, width: 0.6 },
+  } as never);
+  const result = paintImageIntoArea(
+    slide,
+    plan.block,
+    importedImages,
+    plan.imageBox.x,
+    plan.imageBox.y,
+    plan.imageBox.w,
+    plan.imageBox.h,
+  );
+
+  slide.addText('IMAGE / EDITABLE OBJECT', {
+    ...plan.eyebrowBox,
+    fontFace: THEME.labelFont,
+    fontSize: 8,
+    bold: true,
+    charSpacing: 1.5,
+    color: THEME.MUTED_TEXT,
+    margin: 0,
+  });
+  slide.addText(richTextRuns(plan.block.label), {
+    ...plan.labelBox,
+    fontFace: THEME.headingFont,
+    fontSize: 23,
+    bold: true,
+    color: THEME.DARK_TEXT,
+    margin: 0,
+    align: 'left',
+    valign: 'top',
+    wrap: true,
+    fit: 'shrink',
+  });
+  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
+    ...plan.titleRuleBox,
+    line: { color: THEME.DARK_TEXT, width: 1.4 },
+  });
+  if (plan.descriptionBox) {
+    slide.addText(richTextRuns(plan.block.description), {
+      ...plan.descriptionBox,
+      fontFace: THEME.bodyFont,
+      fontSize: 15,
+      color: THEME.BODY_TEXT,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      wrap: true,
+      fit: 'shrink',
+    });
+  }
+  slide.addText(plan.block.fit === 'cover' ? 'COVER CROP' : 'CONTAIN / FULL IMAGE', {
+    ...plan.fitLabelBox,
+    fontFace: THEME.labelFont,
+    fontSize: 8,
+    bold: true,
+    charSpacing: 1.2,
+    color: THEME.MUTED_TEXT,
+    margin: 0,
+  });
+  if (plan.sourceBox) {
+    slide.addText(`Source: ${plan.block.sourceReference}`, {
+      ...plan.sourceBox,
+      fontFace: THEME.bodyFont,
+      fontSize: THEME.FONT_CAPTION,
+      italic: true,
+      color: THEME.CAPTION_COLOR,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      fit: 'shrink',
+    });
+  }
+
+  addEditorialFooter(slide, plan.sectionTitle);
+  return result;
+}
+
+/** Backward-compatible wrapper. */
 export function renderImageSlide(
   pptx: PptxGenJS,
   block: ImageBlock,
   importedImages: Record<string, ImportedImage>,
   sectionTitle: string,
 ): ImageRenderResult {
-  const slide = pptx.addSlide();
-  slide.background = { color: THEME.SLIDE_BG };
-  addEditorialHeader(slide, 'Image evidence', sectionTitle);
-
-  const frame = { x: CONTENT_X, y: 1.55, w: 6.15, h: 4.72 };
-  const copy = { x: 7.32, y: 1.62, w: 4.7, h: 4.65 };
-  slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, {
-    ...frame, rectRadius: 0.06,
-    fill: { color: THEME.WHITE }, line: { color: THEME.DIVIDER_COLOR, width: 0.6 },
-  } as never);
-
-  const imageArea = { x: frame.x + 0.22, y: frame.y + 0.22, w: frame.w - 0.44, h: frame.h - 0.44 };
-  const result = paintImageIntoArea(slide, block, importedImages, imageArea.x, imageArea.y, imageArea.w, imageArea.h);
-
-  slide.addText('IMAGE / EDITABLE OBJECT', {
-    x: copy.x, y: copy.y, w: copy.w, h: 0.18,
-    fontFace: THEME.labelFont, fontSize: 8, bold: true,
-    charSpacing: 1.5, color: THEME.MUTED_TEXT, margin: 0,
-  });
-  slide.addText(richTextRuns(block.label), {
-    x: copy.x, y: copy.y + 0.45, w: copy.w, h: 0.82,
-    fontFace: THEME.headingFont, fontSize: 23, bold: true,
-    color: THEME.DARK_TEXT, margin: 0,
-    align: 'left', valign: 'top', wrap: true, fit: 'shrink',
-  });
-  slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-    x: copy.x, y: copy.y + 1.5, w: 1.05, h: 0,
-    line: { color: THEME.DARK_TEXT, width: 1.4 },
-  });
-  if (richTextToPlain(block.description).trim()) {
-    slide.addText(richTextRuns(block.description), {
-      x: copy.x, y: copy.y + 1.82, w: copy.w, h: 1.55,
-      fontFace: THEME.bodyFont, fontSize: 15,
-      color: THEME.BODY_TEXT, margin: 0,
-      align: 'left', valign: 'top', wrap: true, fit: 'shrink',
-    });
-  }
-  slide.addText(block.fit === 'cover' ? 'COVER CROP' : 'CONTAIN / FULL IMAGE', {
-    x: copy.x, y: copy.y + 3.72, w: copy.w, h: 0.18,
-    fontFace: THEME.labelFont, fontSize: 8, bold: true,
-    charSpacing: 1.2, color: THEME.MUTED_TEXT, margin: 0,
-  });
-  if (block.sourceReference) {
-    slide.addText(`Source: ${block.sourceReference}`, {
-      x: copy.x, y: copy.y + 4.06, w: copy.w, h: 0.22,
-      fontFace: THEME.bodyFont, fontSize: THEME.FONT_CAPTION,
-      italic: true, color: THEME.CAPTION_COLOR, margin: 0,
-      align: 'left', valign: 'top', fit: 'shrink',
-    });
-  }
-
-  addEditorialFooter(slide, sectionTitle);
-  return result;
+  return renderDedicatedImageSlide(
+    pptx,
+    planDedicatedImageSlide(block, sectionTitle),
+    importedImages,
+  );
 }
 
 function renderPlaceholder(slide: PptxGenJS.Slide, block: ImageBlock, areaX: number, areaY: number, areaW: number, areaH: number): void {
