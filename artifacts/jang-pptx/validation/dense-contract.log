@@ -5,10 +5,10 @@ Lockfile is up to date, resolution step is skipped
 Progress: resolved 1, reused 0, downloaded 0, added 0
 Packages: +545
 ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-Progress: resolved 545, reused 0, downloaded 171, added 133
-Progress: resolved 545, reused 0, downloaded 351, added 237
-Progress: resolved 545, reused 0, downloaded 411, added 267
-Progress: resolved 545, reused 0, downloaded 545, added 519
+Progress: resolved 545, reused 0, downloaded 182, added 124
+Progress: resolved 545, reused 0, downloaded 376, added 258
+Progress: resolved 545, reused 0, downloaded 428, added 284
+Progress: resolved 545, reused 0, downloaded 545, added 396
 Progress: resolved 545, reused 0, downloaded 545, added 545, done
 .../esbuild@0.27.3/node_modules/esbuild postinstall$ node install.js
 .../esbuild@0.27.3/node_modules/esbuild postinstall: Done
@@ -46,80 +46,35 @@ typecheck=0
 
 [1m[30m[46m RUN [49m[39m[22m [36mv4.1.10 [39m[90m/home/runner/work/janjooo/janjooo/artifacts/jang-pptx[39m
 
- [31m❯[39m src/tests/pagination.test.ts [2m([22m[2m14 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 34[2mms[22m[39m
-     [32m✓[39m routes a wide table and large diagram to dedicated renderers; only full-slide images are always dedicated[32m 3[2mms[22m[39m
-     [32m✓[39m splits a long paragraph without losing or reordering characters[32m 2[2mms[22m[39m
-     [32m✓[39m continues numbered lists with the correct starting number[32m 4[2mms[22m[39m
-     [32m✓[39m creates real inline table continuations with every source row[32m 1[2mms[22m[39m
-[31m     [31m×[31m keeps the title and subtitle reserve for every fit decision on the first content page[39m[32m 10[2mms[22m[39m
-     [32m✓[39m keeps a non-full image on the same content page as its related text[32m 1[2mms[22m[39m
-     [32m✓[39m keeps a lone non-full image as a content fragment so its label can accompany the placeholder[32m 1[2mms[22m[39m
-     [32m✓[39m still routes a full-slide image straight to a dedicated fragment even with companion text[32m 0[2mms[22m[39m
-     [32m✓[39m breaks the page rather than mixing two images into one two-column layout[32m 1[2mms[22m[39m
-[31m     [31m×[31m reflows text when a later image narrows the page instead of producing geometry overflow[39m[32m 1[2mms[22m[39m
-     [32m✓[39m splits a long paragraph and preserves every character[32m 1[2mms[22m[39m
-     [32m✓[39m splits long bullet lists without dropping or reordering items[32m 2[2mms[22m[39m
-     [32m✓[39m continues numbered-list numbering across slides[32m 2[2mms[22m[39m
-     [32m✓[39m splits a tall inline table into real continuation blocks[32m 1[2mms[22m[39m
- [32m✓[39m src/tests/schema.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [32m✓[39m src/tests/hierarchical-layout.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 27[2mms[22m[39m
- [32m✓[39m src/tests/plan-lecture-slide.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 16[2mms[22m[39m
- [32m✓[39m src/tests/slide-quality.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 14[2mms[22m[39m
- [32m✓[39m src/tests/regression-amino-acid-metabolism.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 134[2mms[22m[39m
- [31m❯[39m src/tests/slide-render-plan.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 34[2mms[22m[39m
-     [32m✓[39m preserves the approved editorial layout while owning every content box[32m 10[2mms[22m[39m
-[31m     [31m×[31m moves the rule definitions subtitle and body below a wrapped slide title[39m[32m 12[2mms[22m[39m
-     [32m✓[39m renders the exact plan without introducing geometry overflow[32m 9[2mms[22m[39m
+ [32m✓[39m src/tests/pagination.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/tests/schema.test.ts [2m([22m[2m14 tests[22m[2m)[22m[32m 30[2mms[22m[39m
+ [32m✓[39m src/tests/hierarchical-layout.test.ts [2m([22m[2m9 tests[22m[2m)[22m[32m 25[2mms[22m[39m
+ [32m✓[39m src/tests/plan-lecture-slide.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 22[2mms[22m[39m
+ [32m✓[39m src/tests/slide-quality.test.ts [2m([22m[2m6 tests[22m[2m)[22m[32m 17[2mms[22m[39m
+ [32m✓[39m src/tests/regression-amino-acid-metabolism.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 135[2mms[22m[39m
+ [31m❯[39m src/tests/slide-render-plan.test.ts [2m([22m[2m4 tests[22m[2m | [22m[31m1 failed[39m[2m)[22m[32m 17[2mms[22m[39m
+     [32m✓[39m preserves the approved editorial layout while owning every content box[32m 4[2mms[22m[39m
+[31m     [31m×[31m moves the rule definitions subtitle and body below a wrapped slide title[39m[32m 7[2mms[22m[39m
+     [32m✓[39m renders the exact plan without introducing geometry overflow[32m 4[2mms[22m[39m
      [32m✓[39m rejects a plan whose physical box crosses the safe content boundary[32m 1[2mms[22m[39m
- [32m✓[39m src/tests/compact-slides.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 17[2mms[22m[39m
- [32m✓[39m src/tests/pptx-generation.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 188[2mms[22m[39m
- [32m✓[39m src/tests/image-layout.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 15[2mms[22m[39m
- [32m✓[39m src/tests/ooxml.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 76[2mms[22m[39m
+ [32m✓[39m src/tests/compact-slides.test.ts [2m([22m[2m5 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/tests/pptx-generation.test.ts [2m([22m[2m3 tests[22m[2m)[22m[32m 183[2mms[22m[39m
+ [32m✓[39m src/tests/image-layout.test.ts [2m([22m[2m7 tests[22m[2m)[22m[32m 18[2mms[22m[39m
+ [32m✓[39m src/tests/ooxml.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 73[2mms[22m[39m
  [32m✓[39m src/tests/table-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 13[2mms[22m[39m
- [32m✓[39m src/tests/geometry-overflow-regression.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 70[2mms[22m[39m
- [32m✓[39m src/tests/diagram-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 9[2mms[22m[39m
- [32m✓[39m src/tests/image-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 12[2mms[22m[39m
- [32m✓[39m src/tests/dense-content-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 5[2mms[22m[39m
+ [32m✓[39m src/tests/geometry-overflow-regression.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 64[2mms[22m[39m
+ [32m✓[39m src/tests/diagram-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 10[2mms[22m[39m
+ [32m✓[39m src/tests/image-render-plan.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 8[2mms[22m[39m
+ [32m✓[39m src/tests/dense-content-contract.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 6[2mms[22m[39m
  [32m✓[39m src/tests/presentation-render-plan.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 10[2mms[22m[39m
- [32m✓[39m src/tests/import-files.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m src/tests/rich-text.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/tests/import-files.test.ts [2m([22m[2m4 tests[22m[2m)[22m[32m 8[2mms[22m[39m
  [32m✓[39m src/tests/diagram-layout.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 7[2mms[22m[39m
- [32m✓[39m src/tests/design-theme.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 52[2mms[22m[39m
+ [32m✓[39m src/tests/rich-text.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 4[2mms[22m[39m
+ [32m✓[39m src/tests/design-theme.test.ts [2m([22m[2m1 test[22m[2m)[22m[32m 67[2mms[22m[39m
  [32m✓[39m src/tests/table-layout.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
  [32m✓[39m src/tests/geometry-validation.test.ts [2m([22m[2m2 tests[22m[2m)[22m[32m 4[2mms[22m[39m
 
-[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 3 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
-
-[41m[1m FAIL [22m[49m src/tests/pagination.test.ts[2m > [22mdeterministic pagination[2m > [22mkeeps the title and subtitle reserve for every fit decision on the first content page
-[31m[1mAssertionError[22m: expected false to be true // Object.is equality[39m
-
-[32m- Expected[39m
-[31m+ Received[39m
-
-[32m- true[39m
-[31m+ false[39m
-
-[36m [2m❯[22m src/tests/pagination.test.ts:[2m80:130[22m[39m
-    [90m 78|[39m     [35mconst[39m fragments [33m=[39m [34mpaginateContent[39m(slide)[33m;[39m
-    [90m 79|[39m     [34mexpect[39m(fragments[33m.[39mlength)[33m.[39m[34mtoBeGreaterThanOrEqual[39m([34m1[39m)[33m;[39m
-    [90m 80|[39m     expect(fragments.some((fragment) => fragment.type === 'content' &&…
-    [90m   |[39m                                                                                                                                  [31m^[39m
-    [90m 81|[39m     [34mexpectContentFragmentsFit[39m(slide[33m,[39m fragments)[33m;[39m
-    [90m 82|[39m   })[33m;[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/3]⎯[22m[39m
-
-[41m[1m FAIL [22m[49m src/tests/pagination.test.ts[2m > [22mimage mixing (issue #22)[2m > [22mreflows text when a later image narrows the page instead of producing geometry overflow
-[31m[1mAssertionError[22m: expected 1 to be greater than 1[39m
-[36m [2m❯[22m src/tests/pagination.test.ts:[2m145:30[22m[39m
-    [90m143|[39m     ])[33m;[39m
-    [90m144|[39m     [35mconst[39m fragments [33m=[39m [34mpaginateContent[39m(slide)[33m;[39m
-    [90m145|[39m     [34mexpect[39m(fragments[33m.[39mlength)[33m.[39m[34mtoBeGreaterThan[39m([34m1[39m)[33m;[39m
-    [90m   |[39m                              [31m^[39m
-    [90m146|[39m     [34mexpectContentFragmentsFit[39m(slide[33m,[39m fragments)[33m;[39m
-    [90m147|[39m   })[33m;[39m
-
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/3]⎯[22m[39m
+[31m⎯⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 1 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
 
 [41m[1m FAIL [22m[49m src/tests/slide-render-plan.test.ts[2m > [22mimmutable content slide render plan[2m > [22mmoves the rule definitions subtitle and body below a wrapped slide title
 [31m[1mSlideRenderPlanError[22m: Slide render plan is invalid:
@@ -135,18 +90,14 @@ typecheck=0
 [90m [2m❯[22m createContentSlideRenderPlan src/layout/plan-content-slide.ts:[2m461:3[22m[39m
 [90m [2m❯[22m src/tests/slide-render-plan.test.ts:[2m75:18[22m[39m
 
-[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/3]⎯[22m[39m
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯[22m[39m
 
 
-[2m Test Files [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m21 passed[39m[22m[90m (23)[39m
-[2m      Tests [22m [1m[31m3 failed[39m[22m[2m | [22m[1m[32m92 passed[39m[22m[90m (95)[39m
-[2m   Start at [22m 15:51:51
-[2m   Duration [22m 3.08s[2m (transform 1.24s, setup 0ms, import 4.35s, tests 779ms, environment 4ms)[22m
+[2m Test Files [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m22 passed[39m[22m[90m (23)[39m
+[2m      Tests [22m [1m[31m1 failed[39m[22m[2m | [22m[1m[32m94 passed[39m[22m[90m (95)[39m
+[2m   Start at [22m 15:54:56
+[2m   Duration [22m 2.99s[2m (transform 1.22s, setup 0ms, import 4.10s, tests 759ms, environment 4ms)[22m
 
-
-::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/tests/pagination.test.ts,title=src/tests/pagination.test.ts > deterministic pagination > keeps the title and subtitle reserve for every fit decision on the first content page,line=80,column=130::AssertionError: expected false to be true // Object.is equality%0A%0A- Expected%0A+ Received%0A%0A- true%0A+ false%0A%0A ❯ src/tests/pagination.test.ts:80:130%0A%0A
-
-::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/tests/pagination.test.ts,title=src/tests/pagination.test.ts > image mixing (issue #22) > reflows text when a later image narrows the page instead of producing geometry overflow,line=145,column=30::AssertionError: expected 1 to be greater than 1%0A ❯ src/tests/pagination.test.ts:145:30%0A%0A
 
 ::error file=/home/runner/work/janjooo/janjooo/artifacts/jang-pptx/src/layout/slide-render-plan.ts,title=src/tests/slide-render-plan.test.ts > immutable content slide render plan > moves the rule definitions subtitle and body below a wrapped slide title,line=200,column=36::SlideRenderPlanError: Slide render plan is invalid:%0A- image source bottom=6.625 exceeds safe bottom 6.62.%0A- Content utilization 1.002 is outside the required 0.60–1.00 range.%0A ❯ assertValidContentSlideRenderPlan src/layout/slide-render-plan.ts:200:36%0A ❯ createContentSlideRenderPlan src/layout/plan-content-slide.ts:461:3%0A ❯ src/tests/slide-render-plan.test.ts:75:18%0A%0A⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯%0ASerialized Error: { violations: [ 'image source bottom=6.625 exceeds safe bottom 6.62.', 'Content utilization 1.002 is outside the required 0.60–1.00 range.' ] }%0A
  ELIFECYCLE  Test failed. See above for more details.
@@ -161,8 +112,8 @@ transforming...
 [32m✓[39m 33 modules transformed.
 rendering chunks...
 computing gzip size...
-[2mdist/[22m[36mindex.js  [39m[1m[2m90.69 kB[22m[1m[22m[2m │ gzip: 22.80 kB[22m[2m │ map: 271.49 kB[22m
-[32m✓ built in 430ms[39m
+[2mdist/[22m[36mindex.js  [39m[1m[2m90.70 kB[22m[1m[22m[2m │ gzip: 22.80 kB[22m[2m │ map: 271.50 kB[22m
+[32m✓ built in 420ms[39m
 library=0
 ## sample
 
@@ -202,6 +153,6 @@ transforming...
 [32m✓[39m 181 modules transformed.
 rendering chunks...
 computing gzip size...
-[2mstandalone/[22m[36mpptx-engine.js  [39m[1m[33m726.06 kB[39m[22m[2m │ gzip: 203.47 kB[22m
-[32m✓ built in 1.73s[39m
+[2mstandalone/[22m[36mpptx-engine.js  [39m[1m[33m726.07 kB[39m[22m[2m │ gzip: 203.48 kB[22m
+[32m✓ built in 1.71s[39m
 standalone=0

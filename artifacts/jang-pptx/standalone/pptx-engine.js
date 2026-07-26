@@ -5083,7 +5083,7 @@ function qs(e, r, t) {
   return { block: e, box: Hs(e, r, t, i) };
 }
 function Vs(e, r, t) {
-  const i = ge(e.label).trim(), a = ge(e.description).trim(), s = e.sourceReference.trim(), l = t && i ? 0.34 : 0, A = t && a ? 0.48 : 0, c = s ? 0.2 : 0, n = [l, A, c].filter((h) => h > 0).length, o = l + A + c + We * n, f = Math.max(1.2, Le - r - o), g = {
+  const i = ge(e.label).trim(), a = ge(e.description).trim(), s = e.sourceReference.trim(), l = t && i ? 0.34 : 0, A = t && a ? 0.48 : 0, c = s ? 0.2 : 0, n = [l, A, c].filter((h) => h > 0).length, o = l + A + c + We * n, f = Math.max(1.2, Le - r - o - 0.01), g = {
     block: e,
     box: { x: Ut, y: r, w: vt, h: f }
   };
