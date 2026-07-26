@@ -80,7 +80,8 @@ jobs:
         run: pnpm --dir artifacts/jang-pptx pack:check
 
       - name: Generate issue 29 review deck
-        run: node artifacts/jang-pptx/scripts/generate-hierarchical-review.mjs
+        working-directory: artifacts/jang-pptx
+        run: node scripts/generate-hierarchical-review.mjs
 
       - name: Install visual review tools
         run: |
@@ -88,12 +89,13 @@ jobs:
           sudo apt-get install -y libreoffice-impress poppler-utils
 
       - name: Render and inspect review deck
+        working-directory: artifacts/jang-pptx
         run: |
-          mkdir -p artifacts/jang-pptx/generated/issue29-render
-          libreoffice --headless --convert-to pdf --outdir artifacts/jang-pptx/generated/issue29-render artifacts/jang-pptx/generated/issue29-hierarchical-review.pptx
-          pdfinfo artifacts/jang-pptx/generated/issue29-render/issue29-hierarchical-review.pdf
-          pdftoppm -png -r 110 artifacts/jang-pptx/generated/issue29-render/issue29-hierarchical-review.pdf artifacts/jang-pptx/generated/issue29-render/slide
-          test -n "$(find artifacts/jang-pptx/generated/issue29-render -name 'slide-*.png' -print -quit)"
+          mkdir -p generated/issue29-render
+          libreoffice --headless --convert-to pdf --outdir generated/issue29-render generated/issue29-hierarchical-review.pptx
+          pdfinfo generated/issue29-render/issue29-hierarchical-review.pdf
+          pdftoppm -png -r 110 generated/issue29-render/issue29-hierarchical-review.pdf generated/issue29-render/slide
+          test -n "$(find generated/issue29-render -name 'slide-*.png' -print -quit)"
 
       - name: Second independent typecheck
         run: pnpm --dir artifacts/jang-pptx typecheck
@@ -104,7 +106,8 @@ jobs:
       - name: Second independent build and review generation
         run: |
           pnpm --dir artifacts/jang-pptx build
-          node artifacts/jang-pptx/scripts/generate-hierarchical-review.mjs
+          cd artifacts/jang-pptx
+          node scripts/generate-hierarchical-review.mjs
 
       - uses: actions/upload-artifact@v4
         with:
