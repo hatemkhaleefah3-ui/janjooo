@@ -1,6 +1,5 @@
 import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type {
-  ImageBlock,
   LectureBlock,
   LectureSlide,
 } from '../schema/lecture-types';
@@ -8,13 +7,14 @@ import { isDedicatedBlock } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
 import { createContentSlideRenderPlan } from './plan-content-slide';
 import { planDedicatedDiagramSlides, type DedicatedDiagramSlideRenderPlan } from './plan-diagram-slides';
+import { planDedicatedImageSlide, type DedicatedImageSlideRenderPlan } from './plan-image-slide';
 import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from './plan-table-slides';
 import { SlideRenderPlanError, type ContentSlideRenderPlan } from './slide-render-plan';
 import { splitContentBlock } from './split-content-block';
 
 export type PlannedLectureSlideFragment =
   | { type: 'content'; plan: ContentSlideRenderPlan }
-  | { type: 'image'; block: ImageBlock }
+  | { type: 'image'; plan: DedicatedImageSlideRenderPlan }
   | { type: 'dedicated-table'; plan: DedicatedTableSlideRenderPlan }
   | { type: 'dedicated-diagram'; plan: DedicatedDiagramSlideRenderPlan };
 
@@ -85,7 +85,7 @@ export function planLectureSlide(
     if (isDedicatedBlock(queue[0])) {
       const block = queue.shift()!;
       if (block.type === 'image') {
-        output.push({ type: 'image', block });
+        output.push({ type: 'image', plan: planDedicatedImageSlide(block, sectionTitle) });
       } else if (block.type === 'table') {
         output.push(...planDedicatedTableSlides(block, sectionTitle).map((plan) => ({
           type: 'dedicated-table' as const,
