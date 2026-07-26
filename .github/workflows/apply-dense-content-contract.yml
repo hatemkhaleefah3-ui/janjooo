@@ -1,16 +1,15 @@
-name: Apply dense content contract
+name: Validate dense content contract
 
 on:
   push:
     branches: [feature/dense-content-spacing]
-  pull_request:
-    branches: [main]
 
 permissions:
   contents: write
 
 jobs:
-  migrate-test-build:
+  validate:
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -25,24 +24,36 @@ jobs:
       - name: Enable pnpm
         run: corepack enable
 
-      - name: Apply source migration
-        run: node scripts/apply-dense-content-contract.mjs
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Typecheck engine
-        run: pnpm --dir artifacts/jang-pptx typecheck
-
-      - name: Test engine
-        run: pnpm --dir artifacts/jang-pptx test
-
-      - name: Build library
-        run: pnpm --dir artifacts/jang-pptx build:lib
-
-      - name: Build standalone browser engine
+      - name: Validate source and build browser bundle
+        id: validation
+        shell: bash
         run: |
-          cat > artifacts/jang-pptx/vite.standalone.config.ts <<'EOF'
+          set +e
+          mkdir -p artifacts/jang-pptx/validation artifacts/jang-pptx/standalone
+          : > artifacts/jang-pptx/validation/dense-contract.log
+
+          run_check() {
+            name="$1"
+            shift
+            echo "## $name" | tee -a artifacts/jang-pptx/validation/dense-contract.log
+            "$@" >> artifacts/jang-pptx/validation/dense-contract.log 2>&1
+            code=$?
+            echo "$name=$code" | tee -a artifacts/jang-pptx/validation/dense-contract.log
+            return $code
+          }
+
+          install=1; typecheck=1; tests=1; library=1; sample=1; inspect=1; standalone=1
+          run_check install pnpm install --frozen-lockfile; install=$?
+          if [ "$install" -eq 0 ]; then
+            run_check typecheck pnpm --dir artifacts/jang-pptx typecheck; typecheck=$?
+            run_check tests pnpm --dir artifacts/jang-pptx test; tests=$?
+            run_check library pnpm --dir artifacts/jang-pptx build:lib; library=$?
+            if [ "$library" -eq 0 ]; then
+              run_check sample pnpm --dir artifacts/jang-pptx sample; sample=$?
+              run_check inspect pnpm --dir artifacts/jang-pptx inspect:sample; inspect=$?
+            fi
+
+            cat > artifacts/jang-pptx/vite.standalone.config.ts <<'EOF'
           import path from 'node:path';
           import { fileURLToPath } from 'node:url';
           import { defineConfig } from 'vite';
@@ -57,27 +68,49 @@ jobs:
               },
               outDir: path.resolve(root, 'standalone'),
               emptyOutDir: true,
-              sourcemap: true,
+              sourcemap: false,
               minify: 'esbuild',
               rollupOptions: { output: { inlineDynamicImports: true } },
             },
           });
           EOF
-          pnpm --dir artifacts/jang-pptx exec vite build --config vite.standalone.config.ts
-          rm artifacts/jang-pptx/vite.standalone.config.ts
+            run_check standalone pnpm --dir artifacts/jang-pptx exec vite build --config vite.standalone.config.ts; standalone=$?
+            rm -f artifacts/jang-pptx/vite.standalone.config.ts
+          fi
 
-      - name: Commit migrated source
+          if [ "$install" -eq 0 ] && [ "$typecheck" -eq 0 ] && [ "$tests" -eq 0 ] && [ "$library" -eq 0 ] && [ "$sample" -eq 0 ] && [ "$inspect" -eq 0 ] && [ "$standalone" -eq 0 ]; then
+            overall=success
+          else
+            overall=failure
+          fi
+
+          cat > artifacts/jang-pptx/validation/dense-contract-status.json <<EOF
+          {
+            "commit": "${GITHUB_SHA}",
+            "overall": "${overall}",
+            "install": ${install},
+            "typecheck": ${typecheck},
+            "tests": ${tests},
+            "library": ${library},
+            "sample": ${sample},
+            "inspect": ${inspect},
+            "standalone": ${standalone}
+          }
+          EOF
+          echo "overall=$overall" >> "$GITHUB_OUTPUT"
+
+      - name: Commit validation result and remove temporary workflow
         run: |
+          rm -f scripts/apply-dense-content-contract.mjs
+          rm -f .github/workflows/apply-dense-content-contract.yml
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add -A
-          git commit -m "Implement dense content and two-pixel spacing contract"
+          git commit -m "Validate dense content contract and build browser engine"
           git push origin HEAD:feature/dense-content-spacing
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dense-content-browser-engine
-          path: |
-            artifacts/jang-pptx/standalone/pptx-engine.js
-            artifacts/jang-pptx/standalone/pptx-engine.js.map
-          if-no-files-found: error
+      - name: Enforce validation result
+        if: steps.validation.outputs.overall != 'success'
+        run: |
+          cat artifacts/jang-pptx/validation/dense-contract.log
+          exit 1
