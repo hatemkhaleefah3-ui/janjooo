@@ -1,5 +1,6 @@
 import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type {
+  ImageBlock,
   LectureBlock,
   LectureSlide,
 } from '../schema/lecture-types';
@@ -17,6 +18,11 @@ export type PlannedLectureSlideFragment =
   | { type: 'image'; plan: DedicatedImageSlideRenderPlan }
   | { type: 'dedicated-table'; plan: DedicatedTableSlideRenderPlan }
   | { type: 'dedicated-diagram'; plan: DedicatedDiagramSlideRenderPlan };
+
+interface ImageRebalanceResult {
+  currentBlocks: LectureBlock[];
+  tail: LectureBlock;
+}
 
 function planningInput(
   slide: LectureSlide,
@@ -63,14 +69,74 @@ function onlyInlineImage(blocks: LectureBlock[]): boolean {
   return blocks.length === 1 && blocks[0].type === 'image';
 }
 
+function textDensity(plan: ContentSlideRenderPlan): number {
+  return plan.blocks.reduce((sum, item) => sum + item.box.h, 0);
+}
+
+/**
+ * When a later image would otherwise be forced onto a sparse image-only page,
+ * split the trailing text block again and carry a substantive tail forward with
+ * the image. Both resulting pages must validate as complete immutable plans.
+ */
+function rebalanceTrailingTextForImage(
+  slide: LectureSlide,
+  sectionTitle: string,
+  pageIndex: number,
+  currentBlocks: LectureBlock[],
+  image: ImageBlock,
+  serial: number,
+): ImageRebalanceResult | undefined {
+  if (currentBlocks.length === 0 || hasInlineImage(currentBlocks)) return undefined;
+
+  const prefix = currentBlocks.slice(0, -1);
+  const trailing = currentBlocks[currentBlocks.length - 1];
+  if (!['paragraph', 'bullets', 'numbered', 'callout', 'table'].includes(trailing.type)) {
+    return undefined;
+  }
+
+  const fullHeight = availableHeight(slide, pageIndex);
+  const ratios = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.24];
+  let best: (ImageRebalanceResult & { score: number }) | undefined;
+
+  for (const ratio of ratios) {
+    const split = splitContentBlock(
+      trailing,
+      Math.max(0.35, fullHeight * ratio),
+      serial,
+      CONTENT_WIDTH,
+    );
+    if (!split.tail) continue;
+
+    const firstBlocks = [...prefix, split.head];
+    const firstPlan = tryPlan(slide, sectionTitle, pageIndex, firstBlocks);
+    const companionPlan = tryPlan(slide, sectionTitle, pageIndex + 1, [split.tail, image]);
+    if (!firstPlan || !companionPlan) continue;
+
+    const firstDensity = textDensity(firstPlan);
+    const companionDensity = textDensity(companionPlan);
+    if (firstDensity < 0.8 || companionDensity < 0.75) continue;
+
+    const score = Math.min(firstDensity, companionDensity) + companionDensity * 0.2;
+    if (!best || score > best.score) {
+      best = { currentBlocks: firstBlocks, tail: split.tail, score };
+    }
+  }
+
+  return best
+    ? { currentBlocks: best.currentBlocks, tail: best.tail }
+    : undefined;
+}
+
 /**
  * Plans one logical lecture slide into physical output pages.
  *
  * Source order is preserved. Each next block is accepted only when the complete
  * immutable slide plan—including title/subtitle reserve, mixed-column reflow,
  * image captions, and safe bottom—validates. A later image is added to the
- * current page only when the already-placed text still fits after narrowing;
- * otherwise the image starts the next page and can pair with following text.
+ * current page only when the already-placed text still fits after narrowing.
+ * When that is impossible, the planner rebalances a trailing text fragment so
+ * the image starts the next page with substantive related copy instead of a
+ * sparse image-only continuation.
  */
 export function planLectureSlide(
   slide: LectureSlide,
@@ -112,6 +178,23 @@ export function planLectureSlide(
       if (tryPlan(slide, sectionTitle, pageIndex, candidate)) {
         pageBlocks.push(queue.shift()!);
         continue;
+      }
+
+      if (next.type === 'image' && pageBlocks.length > 0) {
+        const rebalanced = rebalanceTrailingTextForImage(
+          slide,
+          sectionTitle,
+          pageIndex,
+          pageBlocks,
+          next,
+          splitSerial,
+        );
+        if (rebalanced) {
+          pageBlocks.splice(0, pageBlocks.length, ...rebalanced.currentBlocks);
+          queue.unshift(rebalanced.tail);
+          splitSerial += 1;
+          break;
+        }
       }
 
       const maySplitIntoCurrentPage = pageBlocks.length === 0 || onlyInlineImage(pageBlocks);
