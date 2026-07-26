@@ -5,6 +5,7 @@ import { bottom, validateContentSlideRenderPlan } from '../layout/slide-render-p
 import { validatePresentationGeometry } from '../renderer/geometry-validation';
 import { renderContentSlide } from '../renderer/render-content-slide';
 import { CONTENT_X, IMAGE_COLUMN_X, SAFE_BOTTOM, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
+import { THEME } from '../template/theme';
 import type { LectureBlock } from '../schema/lecture-types';
 
 function planningInput() {
@@ -64,6 +65,22 @@ describe('immutable content slide render plan', () => {
       plan.image?.source?.box,
     ].filter((box): box is NonNullable<typeof box> => Boolean(box));
     expect(boxes.every((box) => bottom(box) <= SAFE_BOTTOM + 0.001)).toBe(true);
+  });
+
+  it('moves the title rule subtitle and body below a wrapped slide title', () => {
+    const plan = createContentSlideRenderPlan(mixedBlocks(), {
+      ...planningInput(),
+      slideTitle: 'Biosynthesis of specialized products from tyrosine and their clinical significance',
+    });
+
+    expect(plan.title).toBeDefined();
+    expect(plan.titleRule).toBeDefined();
+    expect(plan.subtitle).toBeDefined();
+    expect(plan.title!.box.h).toBeGreaterThan(THEME.TITLE_HEIGHT);
+    expect(plan.titleRule!.box.y).toBeGreaterThan(bottom(plan.title!.box));
+    expect(plan.subtitle!.box.y).toBeGreaterThan(plan.titleRule!.box.y);
+    expect(plan.blocks[0].box.y).toBeGreaterThanOrEqual(bottom(plan.subtitle!.box));
+    expect(validateContentSlideRenderPlan(plan)).toEqual([]);
   });
 
   it('renders the exact plan without introducing geometry overflow', () => {

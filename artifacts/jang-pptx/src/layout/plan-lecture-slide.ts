@@ -1,12 +1,11 @@
-import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
+import { CONTENT_WIDTH, SAFE_BOTTOM, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type {
   ImageBlock,
   LectureBlock,
   LectureSlide,
 } from '../schema/lecture-types';
 import { isDedicatedBlock } from '../renderer/paginate-content';
-import { richTextToPlain } from '../renderer/rich-text';
-import { createContentSlideRenderPlan } from './plan-content-slide';
+import { createContentSlideRenderPlan, measureContentHeading } from './plan-content-slide';
 import { planDedicatedDiagramSlides, type DedicatedDiagramSlideRenderPlan } from './plan-diagram-slides';
 import { planDedicatedImageSlide, type DedicatedImageSlideRenderPlan } from './plan-image-slide';
 import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from './plan-table-slides';
@@ -54,11 +53,17 @@ function tryPlan(
   }
 }
 
-function availableHeight(slide: LectureSlide, pageIndex: number): number {
-  const first = pageIndex === 0;
-  const hasTitle = first && slide.slideTitle.trim().length > 0;
-  const hasSubtitle = first && richTextToPlain(slide.slideSubtitle).trim().length > 0;
-  return Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle));
+function availableHeight(
+  slide: LectureSlide,
+  sectionTitle: string,
+  pageIndex: number,
+  textWidth: number,
+): number {
+  const heading = measureContentHeading(
+    planningInput(slide, sectionTitle, pageIndex),
+    textWidth,
+  );
+  return Math.max(0.25, SAFE_BOTTOM - heading.contentStartY);
 }
 
 function hasInlineImage(blocks: LectureBlock[]): boolean {
@@ -94,7 +99,7 @@ function rebalanceTrailingTextForImage(
     return undefined;
   }
 
-  const fullHeight = availableHeight(slide, pageIndex);
+  const fullHeight = availableHeight(slide, sectionTitle, pageIndex, CONTENT_WIDTH);
   const ratios = [0.82, 0.72, 0.62, 0.52, 0.42, 0.32, 0.24];
   let best: (ImageRebalanceResult & { score: number }) | undefined;
 
@@ -131,9 +136,9 @@ function rebalanceTrailingTextForImage(
  * Plans one logical lecture slide into physical output pages.
  *
  * Source order is preserved. Each next block is accepted only when the complete
- * immutable slide plan—including title/subtitle reserve, mixed-column reflow,
- * image captions, and safe bottom—validates. A later image is added to the
- * current page only when the already-placed text still fits after narrowing.
+ * immutable slide plan—including measured title/subtitle reserve, mixed-column
+ * reflow, image captions, and safe bottom—validates. A later image is added to
+ * the current page only when the already-placed text still fits after narrowing.
  * When that is impossible, the planner rebalances a trailing text fragment so
  * the image starts the next page with substantive related copy instead of a
  * sparse image-only continuation.
@@ -209,7 +214,7 @@ export function planLectureSlide(
       const width = hasInlineImage(pageBlocks) ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
       const split = splitContentBlock(
         next,
-        availableHeight(slide, pageIndex),
+        availableHeight(slide, sectionTitle, pageIndex, width),
         splitSerial++,
         width,
       );
