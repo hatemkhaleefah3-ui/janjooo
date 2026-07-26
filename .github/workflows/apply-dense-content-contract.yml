@@ -1,0 +1,81 @@
+name: Apply dense content contract
+
+on:
+  push:
+    branches: [feature/dense-content-spacing]
+
+permissions:
+  contents: write
+
+jobs:
+  migrate-test-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/dense-content-spacing
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Enable pnpm
+        run: corepack enable
+
+      - name: Apply source migration
+        run: node scripts/apply-dense-content-contract.mjs
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck engine
+        run: pnpm --dir artifacts/jang-pptx typecheck
+
+      - name: Test engine
+        run: pnpm --dir artifacts/jang-pptx test
+
+      - name: Build library
+        run: pnpm --dir artifacts/jang-pptx build:lib
+
+      - name: Build standalone browser engine
+        run: |
+          cat > artifacts/jang-pptx/vite.standalone.config.ts <<'EOF'
+          import path from 'node:path';
+          import { fileURLToPath } from 'node:url';
+          import { defineConfig } from 'vite';
+          const root = path.dirname(fileURLToPath(import.meta.url));
+          export default defineConfig({
+            publicDir: false,
+            build: {
+              lib: {
+                entry: path.resolve(root, 'src/index.ts'),
+                formats: ['es'],
+                fileName: () => 'pptx-engine.js',
+              },
+              outDir: path.resolve(root, 'standalone'),
+              emptyOutDir: true,
+              sourcemap: true,
+              minify: 'esbuild',
+              rollupOptions: { output: { inlineDynamicImports: true } },
+            },
+          });
+          EOF
+          pnpm --dir artifacts/jang-pptx exec vite build --config vite.standalone.config.ts
+          rm artifacts/jang-pptx/vite.standalone.config.ts
+
+      - name: Commit migrated source
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add -A
+          git commit -m "Implement dense content and two-pixel spacing contract"
+          git push origin HEAD:feature/dense-content-spacing
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dense-content-browser-engine
+          path: |
+            artifacts/jang-pptx/standalone/pptx-engine.js
+            artifacts/jang-pptx/standalone/pptx-engine.js.map
+          if-no-files-found: error
