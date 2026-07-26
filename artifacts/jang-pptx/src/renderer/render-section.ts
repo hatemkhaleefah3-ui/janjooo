@@ -3,6 +3,7 @@ import { THEME } from '../template/theme';
 import { SECTION_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
+import { measureTextBoxHeight, ruleYAfterTitle } from '../layout/title-spacing';
 import type { LectureSection } from '../schema/lecture-types';
 
 export function renderSection(
@@ -30,14 +31,26 @@ export function renderSection(
     fontFace: THEME.headingFont, fontSize: 40, bold: true,
     color: THEME.DEEP_GRAY, margin: 0, align: 'right', valign: 'top',
   });
+
+  const titleWidth = 6.4;
+  const titleHeight = measureTextBoxHeight(
+    section.sectionTitle,
+    titleWidth,
+    THEME.FONT_SECTION_TITLE_SLIDE,
+    SECTION_LAYOUT.TITLE_H,
+    2.05,
+    0.06,
+  );
+  const ruleY = ruleYAfterTitle(SECTION_LAYOUT.TITLE_Y, titleHeight, 0.18);
+
   slide.addText(section.sectionTitle, {
-    x: CONTENT_X, y: SECTION_LAYOUT.TITLE_Y, w: 6.4, h: SECTION_LAYOUT.TITLE_H,
+    x: CONTENT_X, y: SECTION_LAYOUT.TITLE_Y, w: titleWidth, h: titleHeight,
     fontFace: THEME.headingFont, fontSize: THEME.FONT_SECTION_TITLE_SLIDE,
     bold: true, color: THEME.WHITE, margin: 0,
     align: 'left', valign: 'top', wrap: true, fit: 'shrink',
   });
   slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-    x: CONTENT_X, y: 3.22, w: 1.12, h: 0,
+    x: CONTENT_X, y: ruleY, w: 1.12, h: 0,
     line: { color: THEME.WHITE, width: 2 },
   });
   addEditorialFooter(slide, section.sectionTitle, true);
