@@ -130,6 +130,13 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
     return Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle) - 0.55);
   };
 
+  const measurePage = (blocks: LectureBlock[]): number => {
+    const width = blocks.some((existing) => existing.type === 'image')
+      ? TEXT_WIDTH_WITH_IMAGE
+      : CONTENT_WIDTH;
+    return blocks.reduce((sum, existing) => sum + estimateBlockHeight(existing, width), 0);
+  };
+
   const flush = (): void => {
     if (currentPage.length === 0) return;
     // Non-full images always remain content fragments. If a page contains
@@ -155,11 +162,28 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
         // Keep the two-column layout to a single image; break the page.
         flush();
       }
+
+      const mixedCandidate = [...currentPage, block];
+      const mixedHeight = measurePage(mixedCandidate);
+      if (
+        currentPage.some((existing) => existing.type !== 'image')
+        && mixedHeight > availableForPage(firstContentPage) + 0.001
+      ) {
+        // Text added before the image was measured at full width. Once the
+        // image is present, rendering narrows the text column and may increase
+        // wrapping. Do not retain a page that no longer fits after that reflow.
+        flush();
+      }
+
       currentPage.push(block);
+      currentHeight = measurePage(currentPage);
       continue;
     }
 
-    const available = availableForPage(firstContentPage && currentPage.every((existing) => existing.type === 'image'));
+    // The first content page always renders its title/subtitle, regardless of
+    // how many blocks are already on that page. Keep that reserve for every
+    // fit decision rather than only for the first block.
+    const available = availableForPage(firstContentPage);
     const remaining = available - currentHeight;
     const pageHasImage = currentPage.some((existing) => existing.type === 'image');
     const textWidth = pageHasImage ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
