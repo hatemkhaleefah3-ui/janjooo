@@ -3,14 +3,14 @@ import { THEME } from '../template/theme';
 import { ENDING_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
+import { planPresentation } from '../layout/plan-presentation';
 import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
 import { renderContentSlide } from './render-content-slide';
-import { renderImageSlide } from './render-image';
-import { renderDedicatedTableSlides } from './render-table';
-import { renderDedicatedDiagramSlides } from './render-diagram';
-import { paginateContent } from './paginate-content';
+import { renderDedicatedImageSlide } from './render-image';
+import { renderDedicatedTableSlide } from './render-table';
+import { renderDedicatedDiagramSlide } from './render-diagram';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
@@ -54,45 +54,36 @@ export function composeSlides(
   importedImages: Record<string, ImportedImage>,
   warnings: string[],
 ): void {
-  renderCover(pptx, lecture);
-  renderOverview(pptx, lecture);
+  const presentationPlan = planPresentation(lecture);
 
-  for (let si = 0; si < lecture.sections.length; si++) {
-    const section = lecture.sections[si];
-    renderSection(pptx, section, si);
-
-    for (const lectureSlide of section.slides) {
-      const fragments = paginateContent(lectureSlide);
-      let contentPageIndex = 0;
-
-      for (const fragment of fragments) {
-        switch (fragment.type) {
-          case 'content': {
-            const isFirstPage = contentPageIndex === 0;
-            renderContentSlide(pptx, fragment.blocks, {
-              slideTitle: isFirstPage ? lectureSlide.slideTitle : '',
-              slideSubtitle: isFirstPage ? lectureSlide.slideSubtitle : '',
-              isFirstPage,
-              sectionTitle: section.sectionTitle,
-            });
-            contentPageIndex++;
-            break;
-          }
-          case 'image': {
-            const result = renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);
-            warnings.push(...result.warnings);
-            break;
-          }
-          case 'dedicated-table':
-            renderDedicatedTableSlides(pptx, fragment.block, section.sectionTitle);
-            break;
-          case 'dedicated-diagram':
-            renderDedicatedDiagramSlides(pptx, fragment.block, section.sectionTitle);
-            break;
-        }
+  for (const slidePlan of presentationPlan.slides) {
+    switch (slidePlan.type) {
+      case 'cover':
+        renderCover(pptx, slidePlan.lecture);
+        break;
+      case 'overview':
+        renderOverview(pptx, slidePlan.lecture);
+        break;
+      case 'section':
+        renderSection(pptx, slidePlan.section, slidePlan.sectionIndex);
+        break;
+      case 'content':
+        renderContentSlide(pptx, slidePlan.plan, importedImages, warnings);
+        break;
+      case 'image': {
+        const result = renderDedicatedImageSlide(pptx, slidePlan.plan, importedImages);
+        warnings.push(...result.warnings);
+        break;
       }
+      case 'dedicated-table':
+        renderDedicatedTableSlide(pptx, slidePlan.plan);
+        break;
+      case 'dedicated-diagram':
+        renderDedicatedDiagramSlide(pptx, slidePlan.plan);
+        break;
+      case 'ending':
+        renderEnding(pptx, slidePlan.lecture);
+        break;
     }
   }
-
-  renderEnding(pptx, lecture);
 }

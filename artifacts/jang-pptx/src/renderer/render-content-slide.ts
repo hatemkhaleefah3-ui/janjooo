@@ -1,130 +1,261 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
-import {
-  CONTENT_X, CONTENT_WIDTH, getContentYStart,
-} from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
 import { addTableToSlide } from './render-table';
 import { addDiagramToSlide } from './render-diagram';
-import { estimateBlockHeight } from './paginate-content';
+import { paintImageIntoArea } from './render-image';
 import { calloutBorderColor, calloutLabelColor, calloutLabelText } from './render-text';
-import type { LectureBlock, RichText } from '../schema/lecture-types';
-import { listTextRuns, richTextRuns, richTextToPlain } from './rich-text';
+import type { ImportedImage } from '../schema/lecture-types';
+import type { ContentSlideRenderPlan, PlannedTextElement } from '../layout/slide-render-plan';
+import { listTextRuns, richTextRuns } from './rich-text';
 
-export interface ContentSlideInfo {
-  slideTitle: string;
-  slideSubtitle: RichText;
-  isFirstPage: boolean;
-  sectionTitle: string;
+function renderPlannedText(
+  slide: PptxGenJS.Slide,
+  item: PlannedTextElement,
+  options: PptxGenJS.TextPropsOptions,
+): void {
+  slide.addText(richTextRuns(item.text), { ...item.box, ...options });
 }
 
-export function renderContentSlide(pptx: PptxGenJS, blocks: LectureBlock[], info: ContentSlideInfo): void {
+/**
+ * Renders the exact physical contract created by `createContentSlideRenderPlan`.
+ * This function does not measure content, advance a vertical cursor, select a
+ * layout, or reserve image-caption space. Changing those decisions belongs in
+ * the planner, so the generated PowerPoint cannot diverge from pagination.
+ */
+export function renderContentSlide(
+  pptx: PptxGenJS,
+  plan: ContentSlideRenderPlan,
+  importedImages: Record<string, ImportedImage> = {},
+  warnings: string[] = [],
+): void {
   const slide = pptx.addSlide();
   slide.background = { color: THEME.SLIDE_BG };
-  addEditorialHeader(slide, 'Lecture content', info.sectionTitle);
+  addEditorialHeader(slide, 'Lecture content', plan.sectionTitle);
 
-  const hasTitle = info.isFirstPage && Boolean(info.slideTitle.trim());
-  const hasSubtitle = info.isFirstPage && Boolean(richTextToPlain(info.slideSubtitle).trim());
-
-  if (hasTitle) {
-    const titleY = getContentYStart(false, false);
-    slide.addText(info.slideTitle, {
-      x: CONTENT_X, y: titleY, w: Math.min(CONTENT_WIDTH, 8.5), h: THEME.TITLE_HEIGHT,
-      fontFace: THEME.headingFont, fontSize: THEME.FONT_SLIDE_TITLE,
-      bold: true, color: THEME.DARK_TEXT, margin: 0,
-      align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+  if (plan.title) {
+    renderPlannedText(slide, plan.title, {
+      fontFace: THEME.headingFont,
+      fontSize: THEME.FONT_SLIDE_TITLE,
+      bold: true,
+      color: THEME.DARK_TEXT,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      wrap: true,
+      fit: 'shrink',
     });
+  }
+  if (plan.titleRule) {
     slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-      x: CONTENT_X, y: titleY + THEME.TITLE_HEIGHT + 0.03, w: 1.12, h: 0,
+      ...plan.titleRule.box,
       line: { color: THEME.DARK_TEXT, width: 1.4 },
     });
   }
-  if (hasSubtitle) {
-    slide.addText(richTextRuns(info.slideSubtitle), {
-      x: CONTENT_X, y: getContentYStart(hasTitle, false), w: Math.min(CONTENT_WIDTH, 8.4), h: THEME.SUBTITLE_HEIGHT,
-      fontFace: THEME.bodyFont, fontSize: THEME.FONT_SLIDE_SUBTITLE,
-      color: THEME.MUTED_TEXT, margin: 0,
-      align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+  if (plan.subtitle) {
+    renderPlannedText(slide, plan.subtitle, {
+      fontFace: THEME.bodyFont,
+      fontSize: THEME.FONT_SLIDE_SUBTITLE,
+      color: THEME.MUTED_TEXT,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      wrap: true,
+      fit: 'shrink',
     });
   }
 
-  let currentY = getContentYStart(hasTitle, hasSubtitle);
-  for (const block of blocks) {
-    const height = Math.max(0.1, estimateBlockHeight(block) - THEME.BLOCK_GAP);
+  if (plan.image) {
+    const result = paintImageIntoArea(
+      slide,
+      plan.image.block,
+      importedImages,
+      plan.image.box.x,
+      plan.image.box.y,
+      plan.image.box.w,
+      plan.image.box.h,
+    );
+    warnings.push(...result.warnings);
+
+    if (plan.image.label) {
+      renderPlannedText(slide, plan.image.label, {
+        fontFace: THEME.headingFont,
+        fontSize: 10,
+        bold: true,
+        color: THEME.DARK_TEXT,
+        margin: 0,
+        align: 'left',
+        valign: 'top',
+        wrap: true,
+        fit: 'shrink',
+      });
+    }
+    if (plan.image.description) {
+      renderPlannedText(slide, plan.image.description, {
+        fontFace: THEME.bodyFont,
+        fontSize: 9,
+        color: THEME.BODY_TEXT,
+        margin: 0,
+        align: 'left',
+        valign: 'top',
+        wrap: true,
+        fit: 'shrink',
+      });
+    }
+    if (plan.image.source) {
+      renderPlannedText(slide, plan.image.source, {
+        fontFace: THEME.bodyFont,
+        fontSize: THEME.FONT_CAPTION,
+        italic: true,
+        color: THEME.CAPTION_COLOR,
+        margin: 0,
+        align: 'left',
+        valign: 'top',
+        fit: 'shrink',
+      });
+    }
+  }
+
+  if (plan.imageCompanionLabel) {
+    renderPlannedText(slide, plan.imageCompanionLabel, {
+      fontFace: THEME.headingFont,
+      fontSize: THEME.FONT_SUBTITLE_BLOCK,
+      bold: true,
+      color: THEME.DARK_TEXT,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      wrap: true,
+      fit: 'shrink',
+    });
+  }
+  if (plan.imageCompanionDescription) {
+    renderPlannedText(slide, plan.imageCompanionDescription, {
+      fontFace: THEME.bodyFont,
+      fontSize: THEME.FONT_PARAGRAPH,
+      color: THEME.BODY_TEXT,
+      margin: 0,
+      align: 'left',
+      valign: 'top',
+      wrap: true,
+      fit: 'shrink',
+    });
+  }
+
+  for (const item of plan.blocks) {
+    const { block, box } = item;
     switch (block.type) {
       case 'subtitle':
         slide.addText(richTextRuns(block.text), {
-          x: CONTENT_X, y: currentY, w: Math.min(CONTENT_WIDTH, 8.8), h: height,
-          fontFace: THEME.headingFont, fontSize: THEME.FONT_SUBTITLE_BLOCK,
-          bold: true, color: THEME.DARK_TEXT, margin: 0,
-          align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+          ...box,
+          fontFace: THEME.headingFont,
+          fontSize: THEME.FONT_SUBTITLE_BLOCK,
+          bold: true,
+          color: THEME.DARK_TEXT,
+          margin: 0,
+          align: 'left',
+          valign: 'top',
+          wrap: true,
+          fit: 'shrink',
         });
         break;
       case 'paragraph':
         slide.addText(richTextRuns(block.text), {
-          x: CONTENT_X, y: currentY, w: Math.min(CONTENT_WIDTH, 9.05), h: height,
-          fontFace: THEME.bodyFont, fontSize: THEME.FONT_PARAGRAPH,
-          color: THEME.BODY_TEXT, margin: 0,
-          align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 7, breakLine: false, fit: 'shrink',
+          ...box,
+          fontFace: THEME.bodyFont,
+          fontSize: THEME.FONT_PARAGRAPH,
+          color: THEME.BODY_TEXT,
+          margin: 0,
+          align: 'left',
+          valign: 'top',
+          wrap: true,
+          paraSpaceAfter: 7,
+          breakLine: false,
+          fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'bullets':
         slide.addText(listTextRuns(block.items, 'bullet'), {
-          x: CONTENT_X + 0.02, y: currentY, w: Math.min(CONTENT_WIDTH - 0.02, 9.5), h: height,
-          fontFace: THEME.bodyFont, fontSize: THEME.FONT_BULLET,
-          color: THEME.BODY_TEXT, margin: 0.01,
-          align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 8, fit: 'shrink',
+          ...box,
+          fontFace: THEME.bodyFont,
+          fontSize: THEME.FONT_BULLET,
+          color: THEME.BODY_TEXT,
+          margin: 0.01,
+          align: 'left',
+          valign: 'top',
+          wrap: true,
+          paraSpaceAfter: 8,
+          fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'numbered':
         slide.addText(listTextRuns(block.items, 'number', block.startAt ?? 1), {
-          x: CONTENT_X + 0.02, y: currentY, w: Math.min(CONTENT_WIDTH - 0.02, 9.5), h: height,
-          fontFace: THEME.bodyFont, fontSize: THEME.FONT_NUMBERED,
-          color: THEME.BODY_TEXT, margin: 0.01,
-          align: 'left', valign: 'top', wrap: true, paraSpaceAfter: 8, fit: 'shrink',
+          ...box,
+          fontFace: THEME.bodyFont,
+          fontSize: THEME.FONT_NUMBERED,
+          color: THEME.BODY_TEXT,
+          margin: 0.01,
+          align: 'left',
+          valign: 'top',
+          wrap: true,
+          paraSpaceAfter: 8,
+          fit: 'shrink',
         } as PptxGenJS.TextPropsOptions);
         break;
       case 'callout': {
         const border = calloutBorderColor(block.tone);
         const labelColor = calloutLabelColor(block.tone);
-        const calloutW = Math.min(CONTENT_WIDTH, 9.35);
         slide.addShape('line' as PptxGenJS.SHAPE_NAME, {
-          x: CONTENT_X, y: currentY, w: 0, h: height,
+          x: box.x,
+          y: box.y,
+          w: 0,
+          h: box.h,
           line: { color: border, width: 1.6 },
         });
         slide.addText([
           { text: `${calloutLabelText(block.tone)} / `, options: { bold: true, color: labelColor } },
           ...richTextRuns(block.label),
         ], {
-          x: CONTENT_X + 0.2, y: currentY + 0.02, w: calloutW - 0.2, h: 0.22,
-          fontFace: THEME.labelFont, fontSize: THEME.FONT_CALLOUT_LABEL,
-          bold: true, charSpacing: 1.1, color: labelColor, margin: 0,
-          align: 'left', valign: 'top', fit: 'shrink',
+          x: box.x + 0.2,
+          y: box.y + 0.02,
+          w: box.w - 0.2,
+          h: 0.22,
+          fontFace: THEME.labelFont,
+          fontSize: THEME.FONT_CALLOUT_LABEL,
+          bold: true,
+          charSpacing: 1.1,
+          color: labelColor,
+          margin: 0,
+          align: 'left',
+          valign: 'top',
+          fit: 'shrink',
         });
         slide.addText(richTextRuns(block.text), {
-          x: CONTENT_X + 0.2, y: currentY + 0.3, w: calloutW - 0.2, h: Math.max(0.18, height - 0.32),
-          fontFace: THEME.bodyFont, fontSize: THEME.FONT_CALLOUT_TEXT,
-          color: THEME.BODY_TEXT, margin: 0,
-          align: 'left', valign: 'top', wrap: true, fit: 'shrink',
+          x: box.x + 0.2,
+          y: box.y + 0.3,
+          w: box.w - 0.2,
+          h: Math.max(0.18, box.h - 0.32),
+          fontFace: THEME.bodyFont,
+          fontSize: THEME.FONT_CALLOUT_TEXT,
+          color: THEME.BODY_TEXT,
+          margin: 0,
+          align: 'left',
+          valign: 'top',
+          wrap: true,
+          fit: 'shrink',
         });
         break;
       }
-      case 'table': {
-        const width = block.headers.length <= THEME.TABLE_LARGE_THRESHOLD ? CONTENT_WIDTH * 0.82 : CONTENT_WIDTH;
-        addTableToSlide(slide, block, CONTENT_X, currentY, width, height);
+      case 'table':
+        addTableToSlide(slide, block, box.x, box.y, box.w, box.h);
         break;
-      }
-      case 'diagram': {
-        const totalNodes = block.diagramRows.reduce((sum, row) => sum + row.length, 0);
-        const width = totalNodes <= THEME.DIAGRAM_LARGE_THRESHOLD ? CONTENT_WIDTH * 0.82 : CONTENT_WIDTH;
-        addDiagramToSlide(slide, block, CONTENT_X, currentY, width, height);
+      case 'diagram':
+        addDiagramToSlide(slide, block, box.x, box.y, box.w, box.h);
         break;
-      }
       case 'image':
-        break;
+        throw new Error('Image blocks must be represented by plan.image, not plan.blocks.');
     }
-    currentY += height + THEME.BLOCK_GAP;
   }
 
-  addEditorialFooter(slide, info.sectionTitle);
+  addEditorialFooter(slide, plan.sectionTitle);
 }

@@ -1,9 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
-import {
-  CONTENT_X, CONTENT_WIDTH, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
-} from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
+import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from '../layout/plan-table-slides';
 import type { RichText, TableBlock } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
 
@@ -56,6 +54,7 @@ function buildTableRows(block: TableBlock, rowSlice: RichText[][], fontSize: num
   return [headerRow, ...bodyRows];
 }
 
+/** Legacy helper retained for inline table blocks. */
 export function tableRowsPerSlide(availableHeight: number, includeLabel = true): number {
   const fixed = (includeLabel ? THEME.H_TABLE_LABEL + 0.12 : 0) + THEME.H_TABLE_HEADER_ROW + 0.05;
   return Math.max(1, Math.floor((availableHeight - fixed) / THEME.H_TABLE_BODY_ROW));
@@ -98,42 +97,45 @@ export function addTableToSlide(
   return currentY - y;
 }
 
-export function renderDedicatedTableSlides(pptx: PptxGenJS, block: TableBlock, sectionTitle: string): void {
-  const startY = CONTENT_Y_AFTER_HEADER + 0.62;
-  const availableH = SAFE_BOTTOM - startY - 0.08;
-  const fontSize = Math.max(THEME.FONT_MIN_TABLE, block.headers.length > 6 ? THEME.FONT_TABLE_BODY - 1 : THEME.FONT_TABLE_BODY);
-  const pageRows = tableRowsPerSlide(availableH, true);
-  const pages = paginateTableRows(block.rows, pageRows);
-  const colW = Array(block.headers.length).fill(CONTENT_WIDTH / block.headers.length);
-
-  pages.forEach((rowsThisSlide, pageIndex) => {
-    const slide = pptx.addSlide();
-    slide.background = { color: THEME.SLIDE_BG };
-    addEditorialHeader(slide, 'Editable table', sectionTitle);
-    const label: RichText = pageIndex === 0
-      ? block.label
-      : typeof block.label === 'string'
-        ? `${block.label} (continued ${pageIndex + 1}/${pages.length})`
-        : [...block.label, { text: ` (continued ${pageIndex + 1}/${pages.length})`, emphasis: 'italic' }];
-    slide.addText(richTextRuns(label), {
-      x: CONTENT_X, y: CONTENT_Y_AFTER_HEADER, w: Math.min(CONTENT_WIDTH, 9.5), h: THEME.H_TABLE_LABEL + 0.25,
-      fontFace: THEME.headingFont, fontSize: 22,
-      bold: pageIndex === 0, italic: pageIndex > 0,
-      color: pageIndex === 0 ? THEME.DARK_TEXT : THEME.MUTED_TEXT,
-      margin: 0, align: 'left', valign: 'top', fit: 'shrink',
-    });
-    const tableY = startY;
-    const baseOffset = (block as TableBlock & { __rowOffset?: number }).__rowOffset ?? 0;
-    const rowOffset = baseOffset + pageIndex * pageRows;
-    slide.addTable(buildTableRows(block, rowsThisSlide, fontSize, rowOffset), {
-      x: CONTENT_X, y: tableY, w: CONTENT_WIDTH,
-      rowH: [THEME.H_TABLE_HEADER_ROW, ...Array(rowsThisSlide.length).fill(THEME.H_TABLE_BODY_ROW)],
-      fontFace: THEME.bodyFont, fontSize,
-      border: { type: 'solid', color: THEME.TABLE_BORDER, pt: 0.4 },
-      colW, margin: 0.06,
-    });
-    addEditorialFooter(slide, sectionTitle);
+/** Renders one exact dedicated-table page without recalculating pagination. */
+export function renderDedicatedTableSlide(
+  pptx: PptxGenJS,
+  plan: DedicatedTableSlideRenderPlan,
+): void {
+  const slide = pptx.addSlide();
+  slide.background = { color: THEME.SLIDE_BG };
+  addEditorialHeader(slide, 'Editable table', plan.sectionTitle);
+  slide.addText(richTextRuns(plan.label), {
+    ...plan.labelBox,
+    fontFace: THEME.headingFont,
+    fontSize: 22,
+    bold: plan.pageIndex === 0,
+    italic: plan.pageIndex > 0,
+    color: plan.pageIndex === 0 ? THEME.DARK_TEXT : THEME.MUTED_TEXT,
+    margin: 0,
+    align: 'left',
+    valign: 'top',
+    fit: 'shrink',
   });
+  slide.addTable(buildTableRows(plan.block, plan.rows, plan.fontSize, plan.rowOffset), {
+    x: plan.tableBox.x,
+    y: plan.tableBox.y,
+    w: plan.tableBox.w,
+    rowH: [plan.headerHeight, ...plan.rowHeights],
+    fontFace: THEME.bodyFont,
+    fontSize: plan.fontSize,
+    border: { type: 'solid', color: THEME.TABLE_BORDER, pt: 0.4 },
+    colW: plan.colWidths,
+    margin: 0.06,
+  });
+  addEditorialFooter(slide, plan.sectionTitle);
+}
+
+/** Backward-compatible wrapper; production composition now consumes plans directly. */
+export function renderDedicatedTableSlides(pptx: PptxGenJS, block: TableBlock, sectionTitle: string): void {
+  for (const plan of planDedicatedTableSlides(block, sectionTitle)) {
+    renderDedicatedTableSlide(pptx, plan);
+  }
 }
 
 export function tablePlainText(block: TableBlock): string {

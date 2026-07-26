@@ -1,10 +1,11 @@
 import PptxGenJS from 'pptxgenjs';
 import { THEME } from '../template/theme';
-import {
-  CONTENT_X, CONTENT_WIDTH, CONTENT_Y_AFTER_HEADER, SAFE_BOTTOM,
-} from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader } from '../template/editorial';
-import type { DiagramBlock, RichText, RichTextRun } from '../schema/lecture-types';
+import {
+  planDedicatedDiagramSlides,
+  type DedicatedDiagramSlideRenderPlan,
+} from '../layout/plan-diagram-slides';
+import type { DiagramBlock, RichTextRun } from '../schema/lecture-types';
 import { richTextRuns } from './rich-text';
 
 type DiagramNode = string | RichTextRun[];
@@ -40,6 +41,7 @@ function addArrowLine(slide: PptxGenJS.Slide, x: number, y: number, w: number, h
   });
 }
 
+/** Legacy inline-diagram renderer retained for content blocks. */
 export function addDiagramToSlide(
   slide: PptxGenJS.Slide,
   block: DiagramBlock,
@@ -97,32 +99,65 @@ export function addDiagramToSlide(
   return currentY - areaY;
 }
 
-export function renderDedicatedDiagramSlides(pptx: PptxGenJS, block: DiagramBlock, sectionTitle: string): void {
-  const titleY = CONTENT_Y_AFTER_HEADER;
-  const areaY = CONTENT_Y_AFTER_HEADER + 0.72;
-  const areaH = SAFE_BOTTOM - areaY - 0.08;
-  const pages = paginateDiagramRows(block.diagramRows, diagramRowsPerSlide(areaH));
-  pages.forEach((rows, pageIndex) => {
-    const slide = pptx.addSlide();
-    slide.background = { color: THEME.SLIDE_BG };
-    addEditorialHeader(slide, 'Editable diagram', sectionTitle);
-    const label: RichText = pageIndex === 0
-      ? block.label
-      : typeof block.label === 'string'
-        ? `${block.label} (continued ${pageIndex + 1}/${pages.length})`
-        : [...block.label, { text: ` (continued ${pageIndex + 1}/${pages.length})`, emphasis: 'italic' }];
-    slide.addText(richTextRuns(label), {
-      x: CONTENT_X, y: titleY, w: Math.min(CONTENT_WIDTH, 9.5), h: 0.54,
-      fontFace: THEME.headingFont, fontSize: 22,
-      bold: pageIndex === 0, italic: pageIndex > 0,
-      color: pageIndex === 0 ? THEME.DARK_TEXT : THEME.MUTED_TEXT,
-      margin: 0, align: 'left', valign: 'top', fit: 'shrink',
-    });
-    addDiagramToSlide(slide, { ...block, label: '', diagramRows: rows }, CONTENT_X, areaY, CONTENT_WIDTH, areaH);
-    addEditorialFooter(slide, sectionTitle);
+/** Renders one dedicated diagram page from exact node and connector boxes. */
+export function renderDedicatedDiagramSlide(
+  pptx: PptxGenJS,
+  plan: DedicatedDiagramSlideRenderPlan,
+): void {
+  const slide = pptx.addSlide();
+  slide.background = { color: THEME.SLIDE_BG };
+  addEditorialHeader(slide, 'Editable diagram', plan.sectionTitle);
+  slide.addText(richTextRuns(plan.label), {
+    ...plan.labelBox,
+    fontFace: THEME.headingFont,
+    fontSize: 22,
+    bold: plan.pageIndex === 0,
+    italic: plan.pageIndex > 0,
+    color: plan.pageIndex === 0 ? THEME.DARK_TEXT : THEME.MUTED_TEXT,
+    margin: 0,
+    align: 'left',
+    valign: 'top',
+    fit: 'shrink',
   });
+
+  for (const connector of plan.connectors) {
+    addArrowLine(
+      slide,
+      connector.box.x,
+      connector.box.y,
+      connector.box.w,
+      connector.box.h,
+    );
+  }
+  for (const node of plan.nodes) {
+    slide.addShape('roundRect' as PptxGenJS.SHAPE_NAME, {
+      ...node.box,
+      rectRadius: 0.06,
+      fill: { color: node.emphasized ? THEME.NAVY : THEME.DIAGRAM_NODE_BG },
+      line: { color: THEME.DIAGRAM_NODE_BORDER, width: 0.8 },
+    } as never);
+    slide.addText(richTextRuns(node.text), {
+      x: node.box.x + 0.08,
+      y: node.box.y + 0.05,
+      w: node.box.w - 0.16,
+      h: node.box.h - 0.1,
+      fontFace: THEME.bodyFont,
+      fontSize: THEME.FONT_DIAGRAM_NODE,
+      bold: true,
+      color: node.emphasized ? THEME.WHITE : THEME.DIAGRAM_NODE_TEXT,
+      margin: 0,
+      align: 'center',
+      valign: 'middle',
+      wrap: true,
+      fit: 'shrink',
+    });
+  }
+  addEditorialFooter(slide, plan.sectionTitle);
 }
 
-export function renderDedicatedDiagramSlide(pptx: PptxGenJS, block: DiagramBlock, sectionTitle: string): void {
-  renderDedicatedDiagramSlides(pptx, block, sectionTitle);
+/** Backward-compatible wrapper; production composition consumes plans directly. */
+export function renderDedicatedDiagramSlides(pptx: PptxGenJS, block: DiagramBlock, sectionTitle: string): void {
+  for (const plan of planDedicatedDiagramSlides(block, sectionTitle)) {
+    renderDedicatedDiagramSlide(pptx, plan);
+  }
 }

@@ -1,15 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { paginateContent, isDedicatedBlock } from '../renderer/paginate-content';
+import { estimateBlockHeight, paginateContent, isDedicatedBlock } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
+import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type { LectureBlock, LectureSlide } from '../schema/lecture-types';
 
 function makeSlide(blocks: LectureBlock[]): LectureSlide {
   return { slideId: 'slide', slideTitle: 'A title', slideSubtitle: 'A subtitle', sourceReferences: [], blocks };
 }
 
+function expectContentFragmentsFit(slide: LectureSlide, fragments: ReturnType<typeof paginateContent>): void {
+  let contentPageIndex = 0;
+  for (const fragment of fragments) {
+    if (fragment.type !== 'content') continue;
+    const first = contentPageIndex === 0;
+    const hasTitle = first && slide.slideTitle.trim().length > 0;
+    const hasSubtitle = first && richTextToPlain(slide.slideSubtitle).trim().length > 0;
+    const available = Math.max(0.25, getAvailableHeight(hasTitle, hasSubtitle) - 0.55);
+    const width = fragment.blocks.some((block) => block.type === 'image')
+      ? TEXT_WIDTH_WITH_IMAGE
+      : CONTENT_WIDTH;
+    const used = fragment.blocks.reduce(
+      (sum, block) => sum + estimateBlockHeight(block, width),
+      0,
+    );
+    expect(used).toBeLessThanOrEqual(available + 0.001);
+    contentPageIndex += 1;
+  }
+}
+
 describe('deterministic pagination', () => {
-  it('routes image, wide table, and large diagram to dedicated renderers', () => {
-    expect(isDedicatedBlock({ blockId: 'i', type: 'image', slotId: 's', label: 'Specific image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'automatic', sourceReferences: [] })).toBe(true);
+  it('routes a wide table and large diagram to dedicated renderers; only full-slide images are always dedicated', () => {
+    expect(isDedicatedBlock({ blockId: 'i', type: 'image', slotId: 's', label: 'Specific image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'automatic', sourceReferences: [] })).toBe(false);
+    expect(isDedicatedBlock({ blockId: 'i2', type: 'image', slotId: 's2', label: 'Full-bleed image', description: '', important: true, sourceReference: 'p1', fit: 'contain', preferredAspect: 'full', sourceReferences: [] })).toBe(true);
     expect(isDedicatedBlock({ blockId: 't', type: 'table', label: 'T', headers: ['1','2','3','4'], rows: [], sourceReferences: [] })).toBe(true);
     expect(isDedicatedBlock({ blockId: 'd', type: 'diagram', label: 'D', diagramRows: [['1','2','3'],['4','5']], sourceReferences: [] })).toBe(true);
   });
@@ -45,6 +67,82 @@ describe('deterministic pagination', () => {
       .filter((block): block is Extract<LectureBlock, { type: 'table' }> => block.type === 'table');
     expect(tables.length).toBeGreaterThan(1);
     expect(tables.flatMap((table) => table.rows)).toEqual(rows);
+  });
+
+  it('keeps the title and subtitle reserve for every fit decision on the first content page', () => {
+    const paragraph = 'alpha beta '.repeat(40);
+    const slide = makeSlide([
+      { blockId: 'p1', type: 'paragraph', text: paragraph, sourceReferences: [] },
+      { blockId: 'p2', type: 'paragraph', text: paragraph, sourceReferences: [] },
+    ]);
+    const fragments = paginateContent(slide);
+    expect(fragments.length).toBeGreaterThan(1);
+    expectContentFragmentsFit(slide, fragments);
+  });
+});
+
+describe('image mixing (issue #22)', () => {
+  it('keeps a non-full image on the same content page as its related text', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'p', type: 'paragraph', text: 'Short related paragraph.', sourceReferences: [] },
+      { blockId: 'img', type: 'image', slotId: 'slot-a', label: 'Diagram', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments).toHaveLength(1);
+    expect(fragments[0].type).toBe('content');
+    expect(fragments[0].type === 'content' && fragments[0].blocks.map((b) => b.type)).toEqual(['paragraph', 'image']);
+  });
+
+  it('keeps a lone non-full image as a content fragment so its label can accompany the placeholder', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'img', type: 'image', slotId: 'slot-b', label: 'Standalone image', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments).toHaveLength(1);
+    expect(fragments[0].type).toBe('content');
+  });
+
+  it('still routes a full-slide image straight to a dedicated fragment even with companion text', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'p', type: 'paragraph', text: 'Intro paragraph.', sourceReferences: [] },
+      { blockId: 'img', type: 'image', slotId: 'slot-c', label: 'Full bleed', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'full', sourceReferences: [] },
+    ]));
+    expect(fragments.map((f) => f.type)).toEqual(['content', 'image']);
+  });
+
+  it('breaks the page rather than mixing two images into one two-column layout', () => {
+    const fragments = paginateContent(makeSlide([
+      { blockId: 'img1', type: 'image', slotId: 'slot-d', label: 'First', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+      { blockId: 'p', type: 'paragraph', text: 'Middle paragraph.', sourceReferences: [] },
+      { blockId: 'img2', type: 'image', slotId: 'slot-e', label: 'Second', description: '', important: true, sourceReference: '', fit: 'contain', preferredAspect: 'wide', sourceReferences: [] },
+    ]));
+    expect(fragments.length).toBeGreaterThanOrEqual(2);
+    const firstContent = fragments.find((f) => f.type === 'content');
+    expect(firstContent && firstContent.type === 'content' && firstContent.blocks.filter((b) => b.type === 'image')).toHaveLength(1);
+  });
+
+  it('reflows text when a later image narrows the page instead of producing geometry overflow', () => {
+    const slide = makeSlide([
+      {
+        blockId: 'late-image-text',
+        type: 'paragraph',
+        text: 'alpha beta '.repeat(50),
+        sourceReferences: [],
+      },
+      {
+        blockId: 'late-image',
+        type: 'image',
+        slotId: 'slot-late',
+        label: 'Late image',
+        description: 'The image appears after the paragraph in source order.',
+        important: true,
+        sourceReference: 'p1',
+        fit: 'contain',
+        preferredAspect: 'wide',
+        sourceReferences: [],
+      },
+    ]);
+    const fragments = paginateContent(slide);
+    expect(fragments.length).toBeGreaterThan(1);
+    expectContentFragmentsFit(slide, fragments);
   });
 });
 
