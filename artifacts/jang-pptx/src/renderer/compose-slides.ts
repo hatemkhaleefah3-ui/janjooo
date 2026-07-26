@@ -3,6 +3,7 @@ import { THEME } from '../template/theme';
 import { ENDING_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
+import { createContentSlideRenderPlan } from '../layout/plan-content-slide';
 import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
@@ -71,12 +72,15 @@ export function composeSlides(
         switch (fragment.type) {
           case 'content': {
             const isFirstPage = contentPageIndex === 0;
-            renderContentSlide(pptx, fragment.blocks, {
+            const plan = createContentSlideRenderPlan(fragment.blocks, {
+              sourceSlideId: lectureSlide.slideId,
+              pageIndex: contentPageIndex,
               slideTitle: isFirstPage ? lectureSlide.slideTitle : '',
               slideSubtitle: isFirstPage ? lectureSlide.slideSubtitle : '',
               isFirstPage,
               sectionTitle: section.sectionTitle,
-            }, importedImages, warnings);
+            });
+            renderContentSlide(pptx, plan, importedImages, warnings);
             contentPageIndex++;
             break;
           }
