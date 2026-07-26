@@ -3,7 +3,7 @@ import { THEME } from '../template/theme';
 import { ENDING_LAYOUT } from '../template/slide-layouts';
 import { CONTENT_X } from '../template/geometry';
 import { addEditorialFooter, addEditorialHeader, addOrbitArtwork } from '../template/editorial';
-import { createContentSlideRenderPlan } from '../layout/plan-content-slide';
+import { planLectureSlide } from '../layout/plan-lecture-slide';
 import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
@@ -11,7 +11,6 @@ import { renderContentSlide } from './render-content-slide';
 import { renderImageSlide } from './render-image';
 import { renderDedicatedTableSlides } from './render-table';
 import { renderDedicatedDiagramSlides } from './render-diagram';
-import { paginateContent } from './paginate-content';
 import { compactSectionSlides } from './compact-slides';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
 import { richTextRuns, richTextToPlain } from './rich-text';
@@ -65,25 +64,13 @@ export function composeSlides(
 
     const compactedSlides = compactSectionSlides(section.slides);
     for (const lectureSlide of compactedSlides) {
-      const fragments = paginateContent(lectureSlide);
-      let contentPageIndex = 0;
+      const fragments = planLectureSlide(lectureSlide, section.sectionTitle);
 
       for (const fragment of fragments) {
         switch (fragment.type) {
-          case 'content': {
-            const isFirstPage = contentPageIndex === 0;
-            const plan = createContentSlideRenderPlan(fragment.blocks, {
-              sourceSlideId: lectureSlide.slideId,
-              pageIndex: contentPageIndex,
-              slideTitle: isFirstPage ? lectureSlide.slideTitle : '',
-              slideSubtitle: isFirstPage ? lectureSlide.slideSubtitle : '',
-              isFirstPage,
-              sectionTitle: section.sectionTitle,
-            });
-            renderContentSlide(pptx, plan, importedImages, warnings);
-            contentPageIndex++;
+          case 'content':
+            renderContentSlide(pptx, fragment.plan, importedImages, warnings);
             break;
-          }
           case 'image': {
             const result = renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);
             warnings.push(...result.warnings);
