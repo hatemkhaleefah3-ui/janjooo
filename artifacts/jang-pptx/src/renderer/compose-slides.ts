@@ -8,7 +8,7 @@ import { renderCover } from './render-cover';
 import { renderOverview } from './render-overview';
 import { renderSection } from './render-section';
 import { renderContentSlide } from './render-content-slide';
-import { renderImageSlide } from './render-image';
+import { renderDedicatedImageSlide } from './render-image';
 import { renderDedicatedTableSlide } from './render-table';
 import { renderDedicatedDiagramSlide } from './render-diagram';
 import { compactSectionSlides } from './compact-slides';
@@ -72,7 +72,7 @@ export function composeSlides(
             renderContentSlide(pptx, fragment.plan, importedImages, warnings);
             break;
           case 'image': {
-            const result = renderImageSlide(pptx, fragment.block, importedImages, section.sectionTitle);
+            const result = renderDedicatedImageSlide(pptx, fragment.plan, importedImages);
             warnings.push(...result.warnings);
             break;
           }
