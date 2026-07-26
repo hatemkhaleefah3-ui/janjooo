@@ -5,13 +5,13 @@ import type { LectureBlock, LectureSlide, SubtitleBlock, TitleBlock } from '../s
 
 /**
  * Fraction of a single page's usable height a merged group may occupy.
- * Leaves headroom so a merge doesn't immediately force an awkward
- * continuation split right after compaction.
+ * Targets a dense page near 90% utilization while retaining a small safety
+ * reserve so the immutable physical planner remains the final authority.
  */
-const MERGE_BUDGET_RATIO = 0.85;
+const MERGE_BUDGET_RATIO = 0.95;
 
 function mergeBudget(): number {
-  return Math.max(0.5, getAvailableHeight(true, true) - 0.55) * MERGE_BUDGET_RATIO;
+  return Math.max(0.5, getAvailableHeight(true, true) - 0.25) * MERGE_BUDGET_RATIO;
 }
 
 /** Height contributed by a slide's non-dedicated blocks (dedicated blocks — full
@@ -49,11 +49,9 @@ function subtitleBlock(slide: LectureSlide): SubtitleBlock | undefined {
 
 /**
  * Merges adjacent slides within a single section when their combined
- * non-dedicated content comfortably fits a single page (issue #22,
- * requirement 1). Never crosses a section boundary — callers pass one
- * section's slides at a time. A merged-in topic keeps its own heading (and
- * subtitle, if any) as inline blocks so nothing from the original slide is
- * lost, only re-grouped onto fewer pages.
+ * non-dedicated content comfortably fits a single page. Never crosses a
+ * section boundary. A merged-in topic keeps its own title and sub-title as
+ * inline blocks, so content and source traceability remain complete.
  */
 export function compactSectionSlides(slides: LectureSlide[]): LectureSlide[] {
   const budget = mergeBudget();
@@ -95,8 +93,7 @@ export function compactSectionSlides(slides: LectureSlide[]): LectureSlide[] {
 
 /**
  * Verifies compaction preserved every block, source reference, and slide
- * title from the original slide sequence (issue #22, requirement 5: "content
- * or source references lost during compaction" must fail the quality check).
+ * title from the original slide sequence.
  */
 export function verifyNoContentLoss(original: LectureSlide[], compacted: LectureSlide[]): string[] {
   const violations: string[] = [];
