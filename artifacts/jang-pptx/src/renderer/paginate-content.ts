@@ -1,5 +1,5 @@
 import { THEME } from '../template/theme';
-import { getAvailableHeight, CONTENT_WIDTH } from '../template/geometry';
+import { getAvailableHeight, CONTENT_WIDTH, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import { estimateTextHeight } from './render-text';
 import type {
   BulletsBlock,
@@ -32,9 +32,17 @@ type InternalTableBlock = TableBlock & { __continued?: boolean; __rowOffset?: nu
 
 type SplitResult = { head: LectureBlock; tail?: LectureBlock };
 
-/** Returns true for blocks that always get their own dedicated slide. */
+/**
+ * Returns true for blocks that always get their own dedicated slide.
+ *
+ * Images are dedicated only when explicitly marked full-slide
+ * (`preferredAspect === 'full'`). All other images are eligible to sit in a
+ * two-column layout beside their related text (issue #22, requirement 3) —
+ * `paginateContent` falls back to a dedicated image slide only when no
+ * companion text ends up sharing the same page.
+ */
 export function isDedicatedBlock(block: LectureBlock): boolean {
-  if (block.type === 'image') return true;
+  if (block.type === 'image') return block.preferredAspect === 'full';
   if (block.type === 'table') return block.headers.length > THEME.TABLE_LARGE_THRESHOLD;
   if (block.type === 'diagram') {
     const totalNodes = block.diagramRows.reduce((sum, row) => sum + row.length, 0);
@@ -50,31 +58,36 @@ function blockToFragment(block: LectureBlock): SlideFragment {
   throw new Error(`blockToFragment: unsupported dedicated block type: ${block.type}`);
 }
 
-export function estimateListItemHeight(item: string | ListItem, fontSize: number): number {
+export function estimateListItemHeight(item: string | ListItem, fontSize: number, width = CONTENT_WIDTH): number {
   const level = listItemLevel(item);
-  const usableWidth = Math.max(1, CONTENT_WIDTH - 0.2 - level * 0.25);
+  const usableWidth = Math.max(1, width - 0.2 - level * 0.25);
   return Math.max(
     fontSize === THEME.FONT_NUMBERED ? THEME.H_NUMBERED_ITEM : THEME.H_BULLET_ITEM,
     estimateTextHeight(listItemText(item), usableWidth, fontSize) + 0.04,
   );
 }
 
-/** Estimates how much vertical space a block consumes, including its trailing gap. */
-export function estimateBlockHeight(block: LectureBlock): number {
+/**
+ * Estimates how much vertical space a block consumes, including its trailing
+ * gap. `width` lets callers estimate against a narrowed text column when the
+ * page also carries an inline image (see `TEXT_WIDTH_WITH_IMAGE`); it only
+ * affects blocks whose height depends on text wrapping.
+ */
+export function estimateBlockHeight(block: LectureBlock, width = CONTENT_WIDTH): number {
   const gap = THEME.BLOCK_GAP;
   switch (block.type) {
     case 'subtitle':
-      return Math.max(THEME.H_SUBTITLE_BLOCK, estimateTextHeight(block.text, CONTENT_WIDTH, THEME.FONT_SUBTITLE_BLOCK)) + gap;
+      return Math.max(THEME.H_SUBTITLE_BLOCK, estimateTextHeight(block.text, width, THEME.FONT_SUBTITLE_BLOCK)) + gap;
     case 'paragraph':
-      return Math.max(0.3, estimateTextHeight(block.text, CONTENT_WIDTH, THEME.FONT_PARAGRAPH) + 0.08) + gap;
+      return Math.max(0.3, estimateTextHeight(block.text, width, THEME.FONT_PARAGRAPH) + 0.08) + gap;
     case 'bullets':
-      return block.items.reduce((sum, item) => sum + estimateListItemHeight(item, THEME.FONT_BULLET), 0) + 0.08 + gap;
+      return block.items.reduce((sum, item) => sum + estimateListItemHeight(item, THEME.FONT_BULLET, width), 0) + 0.08 + gap;
     case 'numbered':
-      return block.items.reduce((sum, item) => sum + estimateListItemHeight(item, THEME.FONT_NUMBERED), 0) + 0.08 + gap;
+      return block.items.reduce((sum, item) => sum + estimateListItemHeight(item, THEME.FONT_NUMBERED, width), 0) + 0.08 + gap;
     case 'callout':
       return Math.max(
         THEME.H_CALLOUT_MIN,
-        estimateTextHeight(block.text, CONTENT_WIDTH - 0.3, THEME.FONT_CALLOUT_TEXT) + 0.36,
+        estimateTextHeight(block.text, Math.max(1, width - 0.3), THEME.FONT_CALLOUT_TEXT) + 0.36,
       ) + gap;
     case 'table':
       return THEME.H_TABLE_LABEL + 0.04 + THEME.H_TABLE_HEADER_ROW + block.rows.length * THEME.H_TABLE_BODY_ROW + gap;
@@ -83,6 +96,9 @@ export function estimateBlockHeight(block: LectureBlock): number {
         block.diagramRows.length * THEME.DIAGRAM_NODE_HEIGHT +
         Math.max(0, block.diagramRows.length - 1) * THEME.DIAGRAM_ROW_V_GAP + gap;
     case 'image':
+      // Images never contribute to the stacked text height: a mixed page
+      // renders them in their own column (see render-content-slide.ts), and
+      // a lone image collapses to a dedicated full-slide fragment instead.
       return 0;
   }
 }
@@ -91,6 +107,13 @@ export function estimateBlockHeight(block: LectureBlock): number {
  * Paginates a source slide without dropping content. Oversized paragraphs,
  * lists, callouts, and inline tables are split into deterministic continuation
  * blocks. Dedicated tables and diagrams paginate in their own renderers.
+ *
+ * At most one non-dedicated image is kept per output page so the mixed
+ * two-column layout stays legible; a second image on the same source slide
+ * forces a page break rather than being dropped or forced full-slide.
+ * A content page that ends up holding only an image remains a content
+ * fragment; the renderer uses the image label and description as compact
+ * companion copy rather than creating a blank dedicated placeholder slide.
  */
 export function paginateContent(slide: LectureSlide): SlideFragment[] {
   const fragments: SlideFragment[] = [];
@@ -109,6 +132,9 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
 
   const flush = (): void => {
     if (currentPage.length === 0) return;
+    // Non-full images always remain content fragments. If a page contains
+    // only an image, render-content-slide supplies its label/description in
+    // the text column, which avoids a blank dedicated placeholder slide.
     fragments.push({ type: 'content', blocks: currentPage });
     currentPage = [];
     currentHeight = 0;
@@ -123,9 +149,21 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
       continue;
     }
 
-    const available = availableForPage(firstContentPage && currentPage.length === 0);
+    if (block.type === 'image') {
+      const alreadyHasImage = currentPage.some((existing) => existing.type === 'image');
+      if (alreadyHasImage) {
+        // Keep the two-column layout to a single image; break the page.
+        flush();
+      }
+      currentPage.push(block);
+      continue;
+    }
+
+    const available = availableForPage(firstContentPage && currentPage.every((existing) => existing.type === 'image'));
     const remaining = available - currentHeight;
-    const blockHeight = estimateBlockHeight(block);
+    const pageHasImage = currentPage.some((existing) => existing.type === 'image');
+    const textWidth = pageHasImage ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
+    const blockHeight = estimateBlockHeight(block, textWidth);
 
     if (blockHeight <= remaining + 0.001) {
       currentPage.push(block);
@@ -139,9 +177,9 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
       continue;
     }
 
-    const split = splitBlockToFit(block, available, continuationSerial++);
+    const split = splitBlockToFit(block, available, continuationSerial++, textWidth);
     currentPage.push(split.head);
-    currentHeight += estimateBlockHeight(split.head);
+    currentHeight += estimateBlockHeight(split.head, textWidth);
     flush();
     if (split.tail) queue.unshift(split.tail);
   }
@@ -150,15 +188,15 @@ export function paginateContent(slide: LectureSlide): SlideFragment[] {
   return fragments;
 }
 
-function splitBlockToFit(block: LectureBlock, maxHeight: number, serial: number): SplitResult {
+function splitBlockToFit(block: LectureBlock, maxHeight: number, serial: number, width: number): SplitResult {
   switch (block.type) {
     case 'paragraph':
-      return splitParagraph(block, maxHeight, serial);
+      return splitParagraph(block, maxHeight, serial, width);
     case 'bullets':
     case 'numbered':
-      return splitList(block, maxHeight, serial);
+      return splitList(block, maxHeight, serial, width);
     case 'callout':
-      return splitCallout(block, maxHeight, serial);
+      return splitCallout(block, maxHeight, serial, width);
     case 'table':
       return splitTable(block, maxHeight, serial);
     default:
@@ -168,9 +206,9 @@ function splitBlockToFit(block: LectureBlock, maxHeight: number, serial: number)
   }
 }
 
-function splitParagraph(block: ParagraphBlock, maxHeight: number, serial: number): SplitResult {
+function splitParagraph(block: ParagraphBlock, maxHeight: number, serial: number, width: number): SplitResult {
   const bodyHeight = Math.max(0.2, maxHeight - THEME.BLOCK_GAP - 0.08);
-  const fullHeight = estimateTextHeight(block.text, CONTENT_WIDTH, THEME.FONT_PARAGRAPH);
+  const fullHeight = estimateTextHeight(block.text, width, THEME.FONT_PARAGRAPH);
   const length = richTextToPlain(block.text).length;
   const maxCharacters = Math.max(24, Math.floor(length * Math.min(0.9, bodyHeight / Math.max(fullHeight, 0.01))));
   const [headText, ...rest] = splitRichText(block.text, maxCharacters);
@@ -185,9 +223,9 @@ function splitParagraph(block: ParagraphBlock, maxHeight: number, serial: number
   };
 }
 
-function splitCallout(block: CalloutBlock, maxHeight: number, serial: number): SplitResult {
+function splitCallout(block: CalloutBlock, maxHeight: number, serial: number, width: number): SplitResult {
   const bodyHeight = Math.max(0.2, maxHeight - THEME.BLOCK_GAP - 0.36);
-  const fullHeight = estimateTextHeight(block.text, CONTENT_WIDTH - 0.3, THEME.FONT_CALLOUT_TEXT);
+  const fullHeight = estimateTextHeight(block.text, Math.max(1, width - 0.3), THEME.FONT_CALLOUT_TEXT);
   const length = richTextToPlain(block.text).length;
   const maxCharacters = Math.max(24, Math.floor(length * Math.min(0.9, bodyHeight / Math.max(fullHeight, 0.01))));
   const [headText, ...rest] = splitRichText(block.text, maxCharacters);
@@ -203,14 +241,14 @@ function splitCallout(block: CalloutBlock, maxHeight: number, serial: number): S
   };
 }
 
-function splitList(block: BulletsBlock | NumberedBlock, maxHeight: number, serial: number): SplitResult {
+function splitList(block: BulletsBlock | NumberedBlock, maxHeight: number, serial: number, width: number): SplitResult {
   const fontSize = block.type === 'bullets' ? THEME.FONT_BULLET : THEME.FONT_NUMBERED;
   const availableItemsHeight = Math.max(0.15, maxHeight - THEME.BLOCK_GAP - 0.08);
-  const expanded = expandOversizedListItems(block.items, availableItemsHeight, fontSize);
+  const expanded = expandOversizedListItems(block.items, availableItemsHeight, fontSize, width);
   const headItems: Array<string | ListItem> = [];
   let used = 0;
   for (const item of expanded) {
-    const itemHeight = estimateListItemHeight(item, fontSize);
+    const itemHeight = estimateListItemHeight(item, fontSize, width);
     if (headItems.length > 0 && used + itemHeight > availableItemsHeight) break;
     headItems.push(item);
     used += itemHeight;
@@ -241,16 +279,17 @@ function expandOversizedListItems(
   items: Array<string | ListItem>,
   maxHeight: number,
   fontSize: number,
+  width: number,
 ): Array<string | ListItem> {
   const output: Array<string | ListItem> = [];
   for (const item of items) {
-    const estimated = estimateListItemHeight(item, fontSize);
+    const estimated = estimateListItemHeight(item, fontSize, width);
     if (estimated <= maxHeight) {
       output.push(item);
       continue;
     }
     const text = listItemText(item);
-    const length = richTextToPlain(text).length;
+    const length = richTextToPlain((text)).length;
     const maxCharacters = Math.max(20, Math.floor(length * Math.min(0.85, maxHeight / Math.max(estimated, 0.01))));
     const pieces = splitRichText(text, maxCharacters);
     const level = listItemLevel(item);

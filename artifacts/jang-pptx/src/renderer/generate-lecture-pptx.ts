@@ -1,6 +1,7 @@
 import PptxGenJS from 'pptxgenjs';
 import { composeSlides } from './compose-slides';
 import { validatePresentationGeometry } from './geometry-validation';
+import { evaluateSlideQuality, type SlideQualityReport } from './slide-quality';
 import { validateLecture } from '../schema/validate-lecture';
 import { configureTheme, resetTheme, THEME, type ThemeOverrides } from '../template/theme';
 import type { LectureDocument, ImportedImage } from '../schema/lecture-types';
@@ -12,6 +13,8 @@ export interface GenerationOptions {
   validateInput?: boolean;
   /** Throw instead of warning when an object exceeds slide boundaries. */
   strictGeometry?: boolean;
+  /** Throw instead of warning when slide-density/placeholder/content-preservation checks fail. */
+  strictQuality?: boolean;
   /** Enable ZIP compression in the generated PPTX. Default: true. */
   compression?: boolean;
 }
@@ -20,6 +23,7 @@ export interface GenerationResult {
   blob: Blob;
   warnings: string[];
   slideCount: number;
+  quality: SlideQualityReport;
 }
 
 export class LectureValidationError extends Error {
@@ -94,6 +98,16 @@ async function generateLecturePptxInternal(
       warnings.push(...messages);
     }
 
+    const quality = evaluateSlideQuality(lecture, importedImages);
+    if (!quality.valid) {
+      const messages = quality.issues
+        .filter((issue) => issue.code !== 'unfilled-image-slot')
+        .map((issue) => `Quality: ${issue.message}`);
+      if (options.strictQuality && messages.length > 0) throw new Error(messages.join('\n'));
+      warnings.push(...messages);
+    }
+    warnings.push(...quality.issues.filter((issue) => issue.code === 'unfilled-image-slot').map((issue) => `Quality: ${issue.message}`));
+
     const writeOptions = { compression: options.compression !== false };
     let blob: Blob;
     const isBrowser = typeof globalThis === 'object' && 'document' in globalThis;
@@ -108,7 +122,7 @@ async function generateLecturePptxInternal(
     const slides = (pptx as unknown as { slides?: unknown[]; _slides?: unknown[] }).slides
       ?? (pptx as unknown as { _slides?: unknown[] })._slides
       ?? [];
-    return { blob, warnings: [...new Set(warnings)], slideCount: slides.length };
+    return { blob, warnings: [...new Set(warnings)], slideCount: slides.length, quality };
   } finally {
     resetTheme();
   }
