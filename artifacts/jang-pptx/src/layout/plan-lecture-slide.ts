@@ -1,6 +1,5 @@
 import { CONTENT_WIDTH, getAvailableHeight, TEXT_WIDTH_WITH_IMAGE } from '../template/geometry';
 import type {
-  DiagramBlock,
   ImageBlock,
   LectureBlock,
   LectureSlide,
@@ -8,6 +7,7 @@ import type {
 import { isDedicatedBlock } from '../renderer/paginate-content';
 import { richTextToPlain } from '../renderer/rich-text';
 import { createContentSlideRenderPlan } from './plan-content-slide';
+import { planDedicatedDiagramSlides, type DedicatedDiagramSlideRenderPlan } from './plan-diagram-slides';
 import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from './plan-table-slides';
 import { SlideRenderPlanError, type ContentSlideRenderPlan } from './slide-render-plan';
 import { splitContentBlock } from './split-content-block';
@@ -16,7 +16,7 @@ export type PlannedLectureSlideFragment =
   | { type: 'content'; plan: ContentSlideRenderPlan }
   | { type: 'image'; block: ImageBlock }
   | { type: 'dedicated-table'; plan: DedicatedTableSlideRenderPlan }
-  | { type: 'dedicated-diagram'; block: DiagramBlock };
+  | { type: 'dedicated-diagram'; plan: DedicatedDiagramSlideRenderPlan };
 
 function planningInput(
   slide: LectureSlide,
@@ -92,7 +92,10 @@ export function planLectureSlide(
           plan,
         })));
       } else if (block.type === 'diagram') {
-        output.push({ type: 'dedicated-diagram', block });
+        output.push(...planDedicatedDiagramSlides(block, sectionTitle).map((plan) => ({
+          type: 'dedicated-diagram' as const,
+          plan,
+        })));
       }
       continue;
     }
