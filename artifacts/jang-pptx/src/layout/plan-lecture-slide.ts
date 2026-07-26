@@ -5,12 +5,12 @@ import type {
   LectureSlide,
 } from '../schema/lecture-types';
 import { isDedicatedBlock } from '../renderer/paginate-content';
-import { createContentSlideRenderPlan, measureContentHeading } from './plan-content-slide';
+import { createContentSlideRenderPlan, measureContentHeading, selectRightSideCompanion } from './plan-content-slide';
 import { planDedicatedDiagramSlides, type DedicatedDiagramSlideRenderPlan } from './plan-diagram-slides';
 import { planDedicatedImageSlide, type DedicatedImageSlideRenderPlan } from './plan-image-slide';
 import { planDedicatedTableSlides, type DedicatedTableSlideRenderPlan } from './plan-table-slides';
 import { SlideRenderPlanError, type ContentSlideRenderPlan } from './slide-render-plan';
-import { splitContentBlock } from './split-content-block';
+import { splitContentBlock, type ContentBlockSplit } from './split-content-block';
 
 export type PlannedLectureSlideFragment =
   | { type: 'content'; plan: ContentSlideRenderPlan }
@@ -33,7 +33,9 @@ function planningInput(
     sourceSlideId: slide.slideId,
     pageIndex,
     slideTitle: isFirstPage ? slide.slideTitle : '',
+    titleDefinition: isFirstPage ? slide.titleDefinition : undefined,
     slideSubtitle: isFirstPage ? slide.slideSubtitle : '',
+    subtitleDefinition: isFirstPage ? slide.subtitleDefinition : undefined,
     isFirstPage,
     sectionTitle,
   };
@@ -75,7 +77,39 @@ function onlyInlineImage(blocks: LectureBlock[]): boolean {
 }
 
 function textDensity(plan: ContentSlideRenderPlan): number {
-  return plan.blocks.reduce((sum, item) => sum + item.box.h, 0);
+  return plan.contentBounds.h * plan.naturalUtilization;
+}
+
+/**
+ * Splits a block conservatively until the exact immutable plan accepts the
+ * resulting head. Text estimation is intentionally only a starting point;
+ * the physical plan remains the authority for every page boundary.
+ */
+function splitToValidPlan(
+  slide: LectureSlide,
+  sectionTitle: string,
+  pageIndex: number,
+  pageBlocks: LectureBlock[],
+  block: LectureBlock,
+  serial: number,
+  width: number,
+): ContentBlockSplit | undefined {
+  const height = availableHeight(slide, sectionTitle, pageIndex, width);
+  const ratios = [1, 0.92, 0.84, 0.76, 0.68, 0.6, 0.52, 0.44, 0.36, 0.28, 0.2];
+
+  for (const ratio of ratios) {
+    const split = splitContentBlock(
+      block,
+      Math.max(0.32, height * ratio),
+      serial,
+      width,
+    );
+    if (tryPlan(slide, sectionTitle, pageIndex, [...pageBlocks, split.head])) {
+      return split;
+    }
+  }
+
+  return undefined;
 }
 
 /**
@@ -179,6 +213,14 @@ export function planLectureSlide(
 
       if (next.type === 'image' && hasInlineImage(pageBlocks)) break;
 
+      // A new logical title may remain on this physical slide only when the
+      // preceding natural content footprint uses 50% or less of the available
+      // content area. Sub-titles do not trigger this boundary rule.
+      if (next.type === 'title' && pageBlocks.length > 0) {
+        const prior = tryPlan(slide, sectionTitle, pageIndex, pageBlocks);
+        if (prior && prior.naturalUtilization > 0.5 + 0.001) break;
+      }
+
       const candidate = [...pageBlocks, next];
       if (tryPlan(slide, sectionTitle, pageIndex, candidate)) {
         pageBlocks.push(queue.shift()!);
@@ -211,21 +253,23 @@ export function planLectureSlide(
         ]);
       }
 
-      const width = hasInlineImage(pageBlocks) ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
-      const split = splitContentBlock(
+      const width = selectRightSideCompanion([...pageBlocks, next]) ? TEXT_WIDTH_WITH_IMAGE : CONTENT_WIDTH;
+      const split = splitToValidPlan(
+        slide,
+        sectionTitle,
+        pageIndex,
+        pageBlocks,
         next,
-        availableHeight(slide, sectionTitle, pageIndex, width),
-        splitSerial++,
+        splitSerial,
         width,
       );
-      const splitCandidate = [...pageBlocks, split.head];
-      const planned = tryPlan(slide, sectionTitle, pageIndex, splitCandidate);
-      if (!planned) {
+      if (!split) {
         throw new SlideRenderPlanError([
           `Block ${next.blockId} (${next.type}) could not be split into a valid physical page.`,
         ]);
       }
 
+      splitSerial += 1;
       queue.shift();
       if (split.tail) queue.unshift(split.tail);
       pageBlocks.push(split.head);

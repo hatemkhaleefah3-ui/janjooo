@@ -1,5 +1,5 @@
 /** Schema version string. Version 1.0 remains accepted for migration compatibility. */
-export type SchemaVersion = '1.0' | '1.1';
+export type SchemaVersion = '1.0' | '1.1' | '1.2';
 export type TextEmphasis = 'none' | 'bold' | 'italic' | 'accent' | 'highlight';
 
 export interface RichTextRun {
@@ -37,19 +37,28 @@ export interface LectureOverview {
 export interface LectureSection {
   sectionId: string;
   sectionTitle: string;
+  /** Short explanatory paragraph shown beneath the section-title rule. */
+  sectionDefinition?: RichText;
   slides: LectureSlide[];
 }
 export interface LectureSlide {
   slideId: string;
+  /** User-facing title. The legacy property name is retained for compatibility. */
   slideTitle: string;
+  /** Short definition paragraph rendered below the title rule. */
+  titleDefinition?: RichText;
   slideSubtitle: RichText;
+  /** Short definition paragraph rendered directly below the top-level sub-title. */
+  subtitleDefinition?: RichText;
   sourceReferences: string[];
   blocks: LectureBlock[];
 }
 
-export type LectureBlock = SubtitleBlock | ParagraphBlock | BulletsBlock | NumberedBlock | CalloutBlock | TableBlock | DiagramBlock | ImageBlock;
+export type LectureBlock = TitleBlock | SubtitleBlock | ParagraphBlock | BulletsBlock | NumberedBlock | CalloutBlock | TableBlock | DiagramBlock | ImageBlock;
 export interface BaseBlock { blockId: string; sourceReferences: string[]; }
-export interface SubtitleBlock extends BaseBlock { type: 'subtitle'; text: RichText; }
+/** A logical title group retained when adjacent source topics share one physical slide. */
+export interface TitleBlock extends BaseBlock { type: 'title'; text: RichText; definition?: RichText; }
+export interface SubtitleBlock extends BaseBlock { type: 'subtitle'; text: RichText; definition?: RichText; }
 export interface ParagraphBlock extends BaseBlock { type: 'paragraph'; text: RichText; }
 export interface BulletsBlock extends BaseBlock { type: 'bullets'; items: Array<string | ListItem>; }
 export interface NumberedBlock extends BaseBlock {
@@ -85,7 +94,10 @@ export interface ImageBlock extends BaseBlock {
   fit: 'contain' | 'cover';
   preferredAspect: 'wide' | 'portrait' | 'square' | 'full' | 'automatic';
   orientation?: 'automatic' | 'transverse' | 'longitudinal' | 'portrait' | 'landscape';
+  /** Controls whether filling the frame is safe or whether labels must remain uncropped. */
+  visualType?: 'photo' | 'decorative' | 'pathway' | 'chart' | 'microscopy' | 'radiology' | 'anatomy' | 'diagram' | 'other';
 }
+
 export interface ExtractionAudit {
   sourceType: 'pdf' | 'pptx';
   sourcePageOrSlideCount: number;

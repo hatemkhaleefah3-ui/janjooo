@@ -81,14 +81,15 @@ export function renderOverview(pptx: PptxGenJS, lecture: LectureDocument): void 
     w: OVERVIEW_LAYOUT.RIGHT_COL_W, h: OVERVIEW_LAYOUT.TOC_CARD_H,
     fill: { color: THEME.PAGE_BG }, line: { color: THEME.PAGE_BG, width: 0 },
   });
-  slide.addText('KEY IDEAS', {
+  slide.addText('KEY TERMS', {
     x: OVERVIEW_LAYOUT.RIGHT_COL_X + 0.36, y: OVERVIEW_LAYOUT.TOC_LABEL_Y,
     w: OVERVIEW_LAYOUT.RIGHT_COL_W - 0.72, h: 0.18,
     fontFace: THEME.labelFont, fontSize: 8, bold: true,
     charSpacing: 1.5, color: THEME.MUTED_TEXT, margin: 0,
   });
-  if (lecture.overview.keyPoints.length > 0) {
-    slide.addText(listTextRuns(lecture.overview.keyPoints.map((text) => ({ text })), 'bullet'), {
+  const keyTerms = lecture.sections.map((section) => section.sectionTitle);
+  if (keyTerms.length > 0) {
+    slide.addText(listTextRuns(keyTerms.map((text) => ({ text })), 'bullet'), {
       x: OVERVIEW_LAYOUT.RIGHT_COL_X + 0.34, y: OVERVIEW_LAYOUT.TOC_Y,
       w: OVERVIEW_LAYOUT.RIGHT_COL_W - 0.68, h: OVERVIEW_LAYOUT.TOC_H,
       fontFace: THEME.bodyFont, fontSize: THEME.FONT_OVERVIEW_KEYPOINT,

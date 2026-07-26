@@ -38,7 +38,7 @@ function renderEnding(pptx: PptxGenJS, lecture: LectureDocument): void {
     2.45,
     0.05,
   );
-  const underlineY = ruleYAfterTitle(ENDING_LAYOUT.TEXT_Y, endingHeight, 0.16);
+  const underlineY = ruleYAfterTitle(ENDING_LAYOUT.TEXT_Y, endingHeight);
 
   slide.addText(richTextRuns(endingText), {
     x: CONTENT_X, y: ENDING_LAYOUT.TEXT_Y, w: 6.45, h: endingHeight,

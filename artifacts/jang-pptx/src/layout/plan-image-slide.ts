@@ -1,6 +1,8 @@
+import { THEME } from '../template/theme';
 import type { ImageBlock } from '../schema/lecture-types';
 import type { LayoutBox } from './slide-render-plan';
 import { richTextToPlain } from '../renderer/rich-text';
+import { measureTextBoxHeight, ruleYAfterTitle } from './title-spacing';
 
 export interface DedicatedImageSlideRenderPlan {
   kind: 'dedicated-image';
@@ -23,6 +25,17 @@ export function planDedicatedImageSlide(
 ): DedicatedImageSlideRenderPlan {
   const frameBox = { x: 0.68, y: 1.55, w: 6.15, h: 4.72 };
   const copy = { x: 7.32, y: 1.62, w: 4.7, h: 4.65 };
+  const labelY = copy.y + 0.45;
+  const labelHeight = measureTextBoxHeight(block.label, copy.w, 23, 0.72, 1.42, 0.04);
+  const titleRuleY = ruleYAfterTitle(labelY, labelHeight);
+  const descriptionY = titleRuleY + 0.14;
+  const hasDescription = Boolean(richTextToPlain(block.description).trim());
+  const descriptionHeight = hasDescription
+    ? measureTextBoxHeight(block.description, copy.w, 15, 0.5, 1.42, 0.03)
+    : 0;
+  const fitLabelY = Math.max(copy.y + 3.72, descriptionY + descriptionHeight + 0.22);
+  const sourceY = Math.min(copy.y + 4.25, fitLabelY + 0.34);
+
   return {
     kind: 'dedicated-image',
     sectionTitle,
@@ -35,14 +48,14 @@ export function planDedicatedImageSlide(
       h: frameBox.h - 0.44,
     },
     eyebrowBox: { x: copy.x, y: copy.y, w: copy.w, h: 0.18 },
-    labelBox: { x: copy.x, y: copy.y + 0.45, w: copy.w, h: 0.82 },
-    titleRuleBox: { x: copy.x, y: copy.y + 1.5, w: 1.05, h: 0 },
-    descriptionBox: richTextToPlain(block.description).trim()
-      ? { x: copy.x, y: copy.y + 1.82, w: copy.w, h: 1.55 }
+    labelBox: { x: copy.x, y: labelY, w: copy.w, h: labelHeight },
+    titleRuleBox: { x: copy.x, y: titleRuleY, w: 1.05, h: 0 },
+    descriptionBox: hasDescription
+      ? { x: copy.x, y: descriptionY, w: copy.w, h: descriptionHeight }
       : undefined,
-    fitLabelBox: { x: copy.x, y: copy.y + 3.72, w: copy.w, h: 0.18 },
+    fitLabelBox: { x: copy.x, y: fitLabelY, w: copy.w, h: 0.18 },
     sourceBox: block.sourceReference
-      ? { x: copy.x, y: copy.y + 4.06, w: copy.w, h: 0.22 }
+      ? { x: copy.x, y: sourceY, w: copy.w, h: 0.22 }
       : undefined,
   };
 }

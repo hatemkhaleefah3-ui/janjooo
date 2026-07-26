@@ -115,7 +115,7 @@ describe('planLectureSlide', () => {
 
     const plans = fragments.filter((fragment) => fragment.type === 'content').map((fragment) => fragment.plan);
     expect(plans.filter((plan) => plan.image).length).toBe(2);
-    expect(plans.every((plan) => plan.image === undefined || plan.layout === 'text-image')).toBe(true);
+    expect(plans.every((plan) => plan.image === undefined || plan.layout === 'text-companion')).toBe(true);
   });
 
   it('keeps full images, wide tables, and large diagrams on specialized renderers', () => {

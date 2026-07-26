@@ -23,15 +23,23 @@ export interface PresentationRenderPlan {
  * final PowerPoint renderer.
  */
 export function planPresentation(lecture: LectureDocument): PresentationRenderPlan {
+  const normalizedLecture: LectureDocument = {
+    ...lecture,
+    overview: {
+      ...lecture.overview,
+      // Key terms are deterministic: exactly one item per section title.
+      keyPoints: lecture.sections.map((section) => section.sectionTitle),
+    },
+  };
   const slides: PresentationSlidePlan[] = [
-    { type: 'cover', lecture },
-    { type: 'overview', lecture },
+    { type: 'cover', lecture: normalizedLecture },
+    { type: 'overview', lecture: normalizedLecture },
   ];
   let sourceLectureSlideCount = 0;
   let compactedLectureSlideCount = 0;
   let semanticBlockCount = 0;
 
-  lecture.sections.forEach((section, sectionIndex) => {
+  normalizedLecture.sections.forEach((section, sectionIndex) => {
     slides.push({ type: 'section', section, sectionIndex });
     sourceLectureSlideCount += section.slides.length;
     semanticBlockCount += section.slides.reduce((sum, slide) => sum + slide.blocks.length, 0);
@@ -42,7 +50,7 @@ export function planPresentation(lecture: LectureDocument): PresentationRenderPl
     }
   });
 
-  slides.push({ type: 'ending', lecture });
+  slides.push({ type: 'ending', lecture: normalizedLecture });
   return {
     slides,
     sourceLectureSlideCount,

@@ -76,8 +76,20 @@ export function estimateListItemHeight(item: string | ListItem, fontSize: number
 export function estimateBlockHeight(block: LectureBlock, width = CONTENT_WIDTH): number {
   const gap = THEME.BLOCK_GAP;
   switch (block.type) {
-    case 'subtitle':
-      return Math.max(THEME.H_SUBTITLE_BLOCK, estimateTextHeight(block.text, width, THEME.FONT_SUBTITLE_BLOCK)) + gap;
+    case 'title': {
+      const title = Math.max(0.48, estimateTextHeight(block.text, width, THEME.FONT_SLIDE_TITLE));
+      const definition = block.definition
+        ? Math.max(0.3, estimateTextHeight(block.definition, width, THEME.FONT_CALLOUT_TEXT))
+        : 0;
+      return title + (3 / 96) + 0.1 + definition + 0.14 + gap;
+    }
+    case 'subtitle': {
+      const subtitle = Math.max(THEME.H_SUBTITLE_BLOCK, estimateTextHeight(block.text, width, THEME.FONT_SUBTITLE_BLOCK));
+      const definition = block.definition
+        ? Math.max(0.3, estimateTextHeight(block.definition, width, THEME.FONT_CALLOUT_TEXT))
+        : 0;
+      return subtitle + 0.05 + definition + gap;
+    }
     case 'paragraph':
       return Math.max(0.3, estimateTextHeight(block.text, width, THEME.FONT_PARAGRAPH) + 0.08) + gap;
     case 'bullets':

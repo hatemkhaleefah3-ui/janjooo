@@ -88,6 +88,9 @@ export function validateLecture(data: unknown): ValidationResult {
     if (!section.sectionTitle.trim()) {
       errors.push(`Section "${section.sectionId}" has an empty sectionTitle`);
     }
+    if (doc.schemaVersion === '1.2' && !richTextToPlain(section.sectionDefinition ?? '').trim()) {
+      errors.push(`Section "${section.sectionId}" requires a sectionDefinition in schema 1.2`);
+    }
 
     if (section.slides.length === 0) {
       errors.push(`Section "${section.sectionId}" has no slides`);
@@ -105,6 +108,16 @@ export function validateLecture(data: unknown): ValidationResult {
           errors.push(`Repeated non-empty slide title: "${titleTrimmed}"`);
         }
         nonEmptySlideTitles.add(titleTrimmed);
+        if (doc.schemaVersion === '1.2' && !richTextToPlain(slide.titleDefinition ?? '').trim()) {
+          errors.push(`Title "${titleTrimmed}" requires a titleDefinition in schema 1.2`);
+        }
+      }
+      if (
+        doc.schemaVersion === '1.2'
+        && richTextToPlain(slide.slideSubtitle).trim()
+        && !richTextToPlain(slide.subtitleDefinition ?? '').trim()
+      ) {
+        errors.push(`Slide "${slide.slideId}" requires a subtitleDefinition for its sub-title in schema 1.2`);
       }
 
       if (slide.blocks.length === 0) {
@@ -116,6 +129,14 @@ export function validateLecture(data: unknown): ValidationResult {
           errors.push(`Duplicate blockId: "${block.blockId}"`);
         }
         blockIds.add(block.blockId);
+
+        if (
+          doc.schemaVersion === '1.2'
+          && (block.type === 'title' || block.type === 'subtitle')
+          && !richTextToPlain(block.definition ?? '').trim()
+        ) {
+          errors.push(`${block.type === 'title' ? 'Title' : 'Sub-title'} block "${block.blockId}" requires a definition in schema 1.2`);
+        }
 
         if (block.type === 'image') {
           const img = block as ImageBlock;
@@ -180,7 +201,8 @@ export function validateLecture(data: unknown): ValidationResult {
     for (const slide of section.slides) {
       for (const block of slide.blocks) {
         const richValues: Array<[string, RichText]> = [];
-        if (block.type === 'paragraph' || block.type === 'subtitle') richValues.push(['text', block.text]);
+        if (block.type === 'paragraph' || block.type === 'title' || block.type === 'subtitle') richValues.push(['text', block.text]);
+        if ((block.type === 'title' || block.type === 'subtitle') && block.definition) richValues.push(['definition', block.definition]);
         if (block.type === 'callout') richValues.push(['label', block.label], ['text', block.text]);
         if (block.type === 'image') richValues.push(['label', block.label], ['description', block.description]);
         if (block.type === 'table') richValues.push(['label', block.label], ...block.headers.map((v, i) => [`headers[${i}]`, v] as [string, RichText]), ...block.rows.flatMap((r, ri) => r.map((v, ci) => [`rows[${ri}][${ci}]`, v] as [string, RichText])));
@@ -211,6 +233,14 @@ export function validateLecture(data: unknown): ValidationResult {
           });
         }
       }
+    }
+  }
+
+  if (doc.schemaVersion === '1.2') {
+    const expectedKeyTerms = doc.sections.map((section) => section.sectionTitle.trim());
+    const actualKeyTerms = doc.overview.keyPoints.map((item) => richTextToPlain(item).trim());
+    if (JSON.stringify(actualKeyTerms) !== JSON.stringify(expectedKeyTerms)) {
+      errors.push('overview.keyPoints must exactly match the ordered section titles in schema 1.2');
     }
   }
 

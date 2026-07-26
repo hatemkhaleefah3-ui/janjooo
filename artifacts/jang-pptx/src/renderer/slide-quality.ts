@@ -10,7 +10,8 @@ export interface SlideQualityIssue {
     | 'blank-image-slide'
     | 'unfilled-image-slot'
     | 'disproportionate-slide-count'
-    | 'content-lost-in-compaction';
+    | 'content-lost-in-compaction'
+    | 'content-density-out-of-range';
   message: string;
 }
 
@@ -54,7 +55,13 @@ export function evaluateSlideQuality(
       for (const fragment of fragments) {
         if (fragment.type === 'content') {
           const plan = fragment.plan;
-          const density = plan.blocks.reduce((sum, item) => sum + item.box.h, 0);
+          const density = plan.contentBounds.h * plan.naturalUtilization;
+          if (plan.utilization < 0.6 - 0.001 || plan.utilization > 1 + 0.001) {
+            issues.push({
+              code: 'content-density-out-of-range',
+              message: `Content utilization ${(plan.utilization * 100).toFixed(1)}% for "${slide.slideTitle}" is outside 60%–100%.`,
+            });
+          }
           if (plan.pageIndex > 0 && plan.blocks.length <= 1 && density < LOW_DENSITY_HEIGHT_THRESHOLD) {
             issues.push({
               code: 'low-density-continuation',

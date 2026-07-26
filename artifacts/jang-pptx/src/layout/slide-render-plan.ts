@@ -11,7 +11,9 @@ export interface LayoutBox {
 
 export type PlannedTextRole =
   | 'title'
+  | 'title-definition'
   | 'subtitle'
+  | 'subtitle-definition'
   | 'image-label'
   | 'image-description'
   | 'image-source'
@@ -25,13 +27,17 @@ export interface PlannedTextElement {
 }
 
 export interface PlannedRuleElement {
-  role: 'title-rule';
+  role: 'title-rule' | 'inline-title-rule';
   box: LayoutBox;
 }
 
 export interface PlannedContentBlock {
   block: LectureBlock;
   box: LayoutBox;
+  /** Exact nested boxes for title and sub-title groups. */
+  textBox?: LayoutBox;
+  ruleBox?: LayoutBox;
+  definitionBox?: LayoutBox;
 }
 
 export interface PlannedImageElement {
@@ -56,15 +62,23 @@ export interface ContentSlideRenderPlan {
   pageIndex: number;
   sectionTitle: string;
   isFirstPage: boolean;
-  layout: 'text' | 'text-image';
+  layout: 'text' | 'text-companion';
   contentBounds: LayoutBox;
   title?: PlannedTextElement;
   titleRule?: PlannedRuleElement;
+  titleDefinition?: PlannedTextElement;
   subtitle?: PlannedTextElement;
+  subtitleDefinition?: PlannedTextElement;
   blocks: PlannedContentBlock[];
+  /** Highest-priority non-image companion placed in the right column. */
+  companion?: PlannedContentBlock;
   image?: PlannedImageElement;
   imageCompanionLabel?: PlannedTextElement;
   imageCompanionDescription?: PlannedTextElement;
+  /** Natural content utilization before sparse-slide spacing is expanded. */
+  naturalUtilization: number;
+  /** Final planned utilization of the content area; normal slides target 0.60–1.00. */
+  utilization: number;
 }
 
 export class SlideRenderPlanError extends Error {
@@ -117,12 +131,24 @@ function allPlannedBoxes(plan: ContentSlideRenderPlan): Array<{ label: string; b
   ];
   if (plan.title) boxes.push({ label: 'title', box: plan.title.box, safeBottom: SAFE_BOTTOM });
   if (plan.titleRule) boxes.push({ label: 'title rule', box: plan.titleRule.box, safeBottom: SAFE_BOTTOM });
+  if (plan.titleDefinition) boxes.push({ label: 'title definition', box: plan.titleDefinition.box, safeBottom: SAFE_BOTTOM });
   if (plan.subtitle) boxes.push({ label: 'subtitle', box: plan.subtitle.box, safeBottom: SAFE_BOTTOM });
-  plan.blocks.forEach((item, index) => boxes.push({
-    label: `block ${index + 1} (${item.block.type}:${item.block.blockId})`,
-    box: item.box,
+  if (plan.subtitleDefinition) boxes.push({ label: 'subtitle definition', box: plan.subtitleDefinition.box, safeBottom: SAFE_BOTTOM });
+  plan.blocks.forEach((item, index) => {
+    boxes.push({
+      label: `block ${index + 1} (${item.block.type}:${item.block.blockId})`,
+      box: item.box,
+      safeBottom: SAFE_BOTTOM,
+    });
+    if (item.textBox) boxes.push({ label: `block ${index + 1} text`, box: item.textBox, safeBottom: SAFE_BOTTOM });
+    if (item.ruleBox) boxes.push({ label: `block ${index + 1} rule`, box: item.ruleBox, safeBottom: SAFE_BOTTOM });
+    if (item.definitionBox) boxes.push({ label: `block ${index + 1} definition`, box: item.definitionBox, safeBottom: SAFE_BOTTOM });
+  });
+  if (plan.companion) boxes.push({
+    label: `companion (${plan.companion.block.type}:${plan.companion.block.blockId})`,
+    box: plan.companion.box,
     safeBottom: SAFE_BOTTOM,
-  }));
+  });
   if (plan.image) {
     boxes.push({ label: `image (${plan.image.block.slotId})`, box: plan.image.box, safeBottom: SAFE_BOTTOM });
     if (plan.image.label) boxes.push({ label: 'image label', box: plan.image.label.box, safeBottom: SAFE_BOTTOM });
@@ -151,12 +177,19 @@ export function validateContentSlideRenderPlan(plan: ContentSlideRenderPlan): st
     }
   }
 
-  if (plan.layout === 'text-image' && plan.image) {
-    for (const item of plan.blocks) {
-      if (boxesOverlap(item.box, plan.image.box)) {
-        violations.push(`Block ${item.block.blockId} overlaps the image column.`);
+  if (plan.layout === 'text-companion') {
+    const companionBox = plan.image?.box ?? plan.companion?.box;
+    if (companionBox) {
+      for (const item of plan.blocks) {
+        if (boxesOverlap(item.box, companionBox)) {
+          violations.push(`Block ${item.block.blockId} overlaps the companion column.`);
+        }
       }
     }
+  }
+
+  if (plan.utilization < 0.599 || plan.utilization > 1.001) {
+    violations.push(`Content utilization ${plan.utilization.toFixed(3)} is outside the required 0.60–1.00 range.`);
   }
 
   return violations;
