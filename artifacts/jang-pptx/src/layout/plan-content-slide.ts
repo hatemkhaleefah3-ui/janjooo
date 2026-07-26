@@ -260,7 +260,7 @@ function planImage(
   const sourceHeight = sourceReference ? 0.2 : 0;
   const captionPartCount = [labelHeight, descriptionHeight, sourceHeight].filter((height) => height > 0).length;
   const captionReserve = labelHeight + descriptionHeight + sourceHeight + CONTENT_GAP * captionPartCount;
-  const imageAreaH = Math.max(1.2, SAFE_BOTTOM - imageAreaY - captionReserve - 0.01);
+  const imageAreaH = Math.max(1.1, SAFE_BOTTOM - imageAreaY - captionReserve - 0.01);
   const image: PlannedImageElement = {
     block: imageBlock,
     box: { x: IMAGE_COLUMN_X, y: imageAreaY, w: IMAGE_COLUMN_WIDTH, h: imageAreaH },
