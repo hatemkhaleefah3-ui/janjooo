@@ -72,6 +72,39 @@ describe('planLectureSlide', () => {
     expect(fragments.length).toBeGreaterThan(1);
   });
 
+  it('rebalances trailing text so an inline image is never a sparse image-only continuation', () => {
+    const source = 'Phenylalanine is converted to tyrosine and supplies catecholamine, thyroid hormone, and melanin synthesis. '.repeat(26);
+    const fragments = planLectureSlide(makeSlide([
+      { blockId: 'aromatic-text', type: 'paragraph', text: source, sourceReferences: ['p10'] },
+      image('aromatic-image', 'aromatic-evidence'),
+      {
+        blockId: 'large-diagram',
+        type: 'diagram',
+        label: 'Phenylalanine and tyrosine pathway',
+        diagramRows: [
+          ['Phenylalanine', 'Tyrosine', 'DOPA', 'Dopamine', 'Norepinephrine', 'Epinephrine'],
+          ['Tyrosine', 'Thyroid hormones', 'Melanin'],
+        ],
+        sourceReferences: ['p11'],
+      },
+    ]), 'Aromatic amino acids');
+
+    const contentPlans = fragments
+      .filter((fragment) => fragment.type === 'content')
+      .map((fragment) => fragment.plan);
+    const imagePlan = contentPlans.find((plan) => plan.image?.block.slotId === 'aromatic-evidence');
+    expect(imagePlan).toBeDefined();
+    expect(imagePlan?.blocks.length).toBeGreaterThan(0);
+    expect(imagePlan?.blocks.reduce((sum, item) => sum + item.box.h, 0)).toBeGreaterThanOrEqual(0.75);
+
+    const reconstructed = contentPlans
+      .flatMap((plan) => plan.blocks)
+      .filter((item) => item.block.type === 'paragraph')
+      .map((item) => item.block.type === 'paragraph' ? richTextToPlain(item.block.text) : '')
+      .join('');
+    expect(reconstructed).toBe(source);
+  });
+
   it('keeps at most one inline image in each planned content page', () => {
     const fragments = planLectureSlide(makeSlide([
       image('image-a', 'a'),
